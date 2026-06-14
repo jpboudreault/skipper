@@ -15,8 +15,6 @@ Email the maintainers privately with:
 - Potential impact
 - Suggested fix (if any)
 
-We will acknowledge receipt within 48 hours and aim to provide a fix or mitigation plan within 7 days.
-
 ## Security best practices for deployments
 
 - Set `DEV_MODE=false` in production

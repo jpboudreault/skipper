@@ -472,7 +472,7 @@
 										{#each Array(numInnings) as _, inn}
 											{@const pos = getCellPosition(player.id, inn + 1)}
 											{@const locked = isLocked(player.id, inn + 1)}
-											<td class="text-center border-r border-base-200 last:border-r-0 {locked ? 'bg-warning/5' : ''} {isInjured(player.id, inn + 1) ? 'bg-error/10' : ''}">
+											<td class="text-center border-r border-base-200 last:border-r-0 {locked ? 'locked-cell' : ''} {isInjured(player.id, inn + 1) ? 'bg-error/10' : ''}">
 												{#if injuryMode}
 													<button class="w-full h-full min-h-[30px] flex items-center justify-center hover:bg-error/20 transition-colors" onclick={() => toggleInjury(player.id, inn + 1)}>
 														{#if isInjured(player.id, inn + 1)}
@@ -489,7 +489,7 @@
 															<select
 																value={pos?.toString() ?? ''}
 																onchange={(e) => setCell(player.id, inn + 1, parseInt(e.currentTarget.value))}
-																class="select select-bordered select-xs w-16 {locked ? 'select-warning bg-warning/10 font-bold' : ''}"
+																class="select select-bordered select-xs w-16 {locked ? 'select-warning locked-position-select font-bold' : ''}"
 															>
 																<option value="">—</option>
 																{#each Object.entries(POSITIONS) as [val, label]}
@@ -560,3 +560,14 @@
 	{lineup}
 	{availability}
 />
+
+<style>
+	:global(td.locked-cell) {
+		background-color: color-mix(in oklab, var(--color-warning) 5%, var(--color-base-100));
+	}
+
+	:global(select.locked-position-select),
+	:global(select.locked-position-select option) {
+		background-color: color-mix(in oklab, var(--color-warning) 12%, var(--color-base-100));
+	}
+</style>

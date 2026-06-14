@@ -135,7 +135,7 @@
 						<div class="flex items-center justify-between mb-4 border-b border-base-200 pb-2">
 							<div>
 								<h2 class="card-title text-xl">Individual Statistics</h2>
-								<p class="text-sm text-base-content/60">Top performers in recent games</p>
+								<p class="text-sm text-base-content/60">Top performers in the last 5 games</p>
 							</div>
 							<a href="/stats" class="btn btn-ghost btn-sm text-primary">Full Season</a>
 						</div>
@@ -170,7 +170,7 @@
 										</table>
 									</div>
 								{:else}
-									<p class="text-base-content/50 italic text-sm">No batting stats for recent games.</p>
+									<p class="text-base-content/50 italic text-sm">No batting stats for the last 5 games.</p>
 								{/if}
 							</div>
 
@@ -203,7 +203,7 @@
 										</table>
 									</div>
 								{:else}
-									<p class="text-base-content/50 italic text-sm">No pitching stats for recent games.</p>
+									<p class="text-base-content/50 italic text-sm">No pitching stats for the last 5 games.</p>
 								{/if}
 							</div>
 						</div>

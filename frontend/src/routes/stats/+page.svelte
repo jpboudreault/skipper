@@ -149,7 +149,7 @@
 		<div class="sm:flex-auto">
 			<h1 class="text-3xl font-extrabold text-base-content">Team Stats</h1>
 			<p class="mt-2 text-sm text-base-content/70">
-				View season batting, pitching, and defensive statistics.
+				Full season batting, pitching, and defensive statistics.
 			</p>
 		</div>
 	</div>
