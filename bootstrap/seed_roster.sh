@@ -22,9 +22,16 @@ if [ ! -f "$CSV" ]; then
   CSV="${SCRIPT_DIR}/rosters.csv.example"
 fi
 
+strip_cr() { printf '%s' "$1" | tr -d '\r'; }
+
 echo "Seeding rosters to: $URL"
 
 tail -n +2 "$CSV" | while IFS=, read -r team_id first last jersey; do
+  team_id=$(strip_cr "$team_id")
+  first=$(strip_cr "$first")
+  last=$(strip_cr "$last")
+  jersey=$(strip_cr "$jersey")
+
   echo " -> Adding $first $last (#$jersey) to team $team_id"
   http_code=$(curl -s -o /tmp/skipper_seed_resp.txt -w "%{http_code}" \
     -X POST "$URL/api/players/" \

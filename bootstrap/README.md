@@ -38,14 +38,24 @@ curl -X POST "$SKIPPER_URL/api/games/" \
 
 ## Seed scripts
 
+Run in order after logging in:
+
 ```bash
-bash bootstrap/seed_roster.sh https://your-app.fly.dev YOUR_TOKEN
-bash bootstrap/seed_games.sh https://your-app.fly.dev YOUR_TOKEN
+export SKIPPER_URL="http://localhost:5173"
+export TOKEN="your_jwt_token_here"
+
+bash bootstrap/seed_roster.sh "$SKIPPER_URL" "$TOKEN"
+bash bootstrap/seed_games.sh "$SKIPPER_URL" "$TOKEN"
+bash bootstrap/seed_game_results.sh "$SKIPPER_URL" "$TOKEN"
 ```
+
+`seed_game_results.sh` fills in final scores and batting lines for the first three demo games (by date), so the dashboard and stats pages look populated for screenshots.
 
 ## CSV templates
 
 - `rosters.csv.example` — sample players for teams 1 and 2
 - `games.csv.example` — sample schedule entries
+- `game_results.csv.example` — final scores for the first three demo games
+- `game_batting.csv.example` — batting lines for those games
 
-Copy to `rosters.csv` / `games.csv` (gitignored) and adapt for your team.
+Copy to `rosters.csv` / `games.csv` / `game_results.csv` / `game_batting.csv` (gitignored) and adapt for your team.

@@ -1,0 +1,21 @@
+team_id,date,opponent,first_name,last_name,batting_order,singles,doubles,triples,hr,bb,rbi,r,sb,outs_not_k
+1,2026-06-01,Rival Stars,Babe,Ruth,1,1,0,0,1,1,3,2,0,1
+1,2026-06-01,Rival Stars,Mike,Trout,2,2,0,0,0,0,1,2,1,1
+1,2026-06-01,Rival Stars,Lou,Gehrig,3,0,2,0,0,1,2,1,0,1
+1,2026-06-01,Rival Stars,Jackie,Robinson,4,2,0,0,0,0,0,1,1,2
+1,2026-06-01,Rival Stars,Hank,Aaron,5,0,0,1,0,0,1,1,0,1
+1,2026-06-01,Rival Stars,Ted,Williams,6,1,1,0,0,0,0,0,0,2
+1,2026-06-01,Rival Stars,Willie,Mays,7,1,0,0,0,1,0,0,0,1
+1,2026-06-01,Rival Stars,Ty,Cobb,8,2,0,0,0,0,1,1,0,0
+1,2026-06-08,Blue Sox,Babe,Ruth,1,1,0,0,0,1,1,1,0,2
+1,2026-06-08,Blue Sox,Mike,Trout,2,0,1,0,1,0,2,1,0,1
+1,2026-06-08,Blue Sox,Lou,Gehrig,3,2,0,0,0,0,0,1,0,1
+1,2026-06-08,Blue Sox,Jackie,Robinson,4,1,0,0,0,0,0,0,0,3
+1,2026-06-08,Blue Sox,Hank,Aaron,5,0,1,0,0,1,1,0,0,1
+1,2026-06-08,Blue Sox,Ted,Williams,6,1,0,0,0,0,0,0,0,2
+2,2026-06-02,Comets,Ken,Griffey,1,2,0,0,1,0,3,2,0,1
+2,2026-06-02,Comets,Cal,Ripken,2,1,1,0,0,1,1,1,0,1
+2,2026-06-02,Comets,Tony,Gwynn,3,3,0,0,0,0,1,1,0,0
+2,2026-06-02,Comets,Albert,Pujols,4,0,2,0,0,0,1,1,0,1
+2,2026-06-02,Comets,Derek,Jeter,5,1,0,0,0,1,0,1,1,1
+2,2026-06-02,Comets,Ichiro,Suzuki,6,2,0,0,0,0,0,1,0,1

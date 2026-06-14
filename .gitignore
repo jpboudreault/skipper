@@ -60,6 +60,8 @@ backup_private/**
 backend/app/tenants.json
 bootstrap/rosters.csv
 bootstrap/games.csv
+bootstrap/game_results.csv
+bootstrap/game_batting.csv
 
 # LLM instructions
 AGENTS.md

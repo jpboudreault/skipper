@@ -22,9 +22,19 @@ if [ ! -f "$CSV" ]; then
   CSV="${SCRIPT_DIR}/games.csv.example"
 fi
 
+strip_cr() { printf '%s' "$1" | tr -d '\r'; }
+
 echo "Seeding games to: $URL"
 
 tail -n +2 "$CSV" | while IFS=, read -r team_id date opponent venue home_away mode game_type; do
+  team_id=$(strip_cr "$team_id")
+  date=$(strip_cr "$date")
+  opponent=$(strip_cr "$opponent")
+  venue=$(strip_cr "$venue")
+  home_away=$(strip_cr "$home_away")
+  mode=$(strip_cr "$mode")
+  game_type=$(strip_cr "$game_type")
+
   echo " -> Adding game on $date vs $opponent (team $team_id)"
   http_code=$(curl -s -o /tmp/skipper_seed_resp.txt -w "%{http_code}" \
     -X POST "$URL/api/games/" \
