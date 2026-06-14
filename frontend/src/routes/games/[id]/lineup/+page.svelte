@@ -2,7 +2,7 @@
 	import { page } from '$app/stores';
 	import { onMount } from 'svelte';
 	import { apiFetch } from '$lib/api';
-	import PrintableLineupCard from './PrintableLineupCard.svelte';
+	import { getLineupPrintComponent } from '$lib/league_formats';
 
 	let players: any[] = $state([]);
 	let game: any = $state(null);
@@ -30,6 +30,7 @@
 	};
 
 	let numInnings = $derived(game?.innings_played || team?.innings_per_game || 5);
+	let LineupPrintCard = $derived(getLineupPrintComponent(team?.lineup_print_version));
 
 	async function fetchData() {
 		try {
@@ -552,7 +553,7 @@
 	</div>
 </div>
 
-<PrintableLineupCard 
+<LineupPrintCard 
 	{game}
 	{team}
 	{players}

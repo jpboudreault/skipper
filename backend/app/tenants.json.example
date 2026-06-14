@@ -10,6 +10,8 @@
     "division": "13U",
     "classe": "B",
     "default_league": "Local League",
+    "lineup_print_version": "baseball_quebec",
+    "scoresheet_version": "baseball_quebec",
     "pitch_count_rules": {
       "max_pitches_per_day": 85,
       "max_pitches_to_catch": 40,
@@ -36,6 +38,8 @@
     "division": "15U",
     "classe": "B",
     "default_league": "Local League",
+    "lineup_print_version": "baseball_quebec",
+    "scoresheet_version": "baseball_quebec",
     "pitch_count_rules": {
       "max_pitches_per_day": 95,
       "max_pitches_to_catch": 45,

@@ -52,7 +52,9 @@ def seed_tenants_and_admins():
                     pitch_count_rules_json=pitch_rules_str,
                     division=tenant.get("division"),
                     classe=tenant.get("classe"),
-                    default_league=tenant.get("default_league")
+                    default_league=tenant.get("default_league"),
+                    lineup_print_version=tenant.get("lineup_print_version", "baseball_quebec"),
+                    scoresheet_version=tenant.get("scoresheet_version", "baseball_quebec"),
                 )
                 session.add(team)
                 session.commit()
@@ -68,6 +70,8 @@ def seed_tenants_and_admins():
                 team.division = tenant.get("division", team.division)
                 team.classe = tenant.get("classe", team.classe)
                 team.default_league = tenant.get("default_league", team.default_league)
+                team.lineup_print_version = tenant.get("lineup_print_version", team.lineup_print_version)
+                team.scoresheet_version = tenant.get("scoresheet_version", team.scoresheet_version)
                 session.add(team)
                 session.commit()
                 session.refresh(team)
@@ -149,6 +153,8 @@ def run_migrations():
             ("team", "division", "ALTER TABLE team ADD COLUMN division TEXT"),
             ("team", "classe", "ALTER TABLE team ADD COLUMN classe TEXT"),
             ("team", "default_league", "ALTER TABLE team ADD COLUMN default_league TEXT"),
+            ("team", "lineup_print_version", "ALTER TABLE team ADD COLUMN lineup_print_version TEXT NOT NULL DEFAULT 'baseball_quebec'"),
+            ("team", "scoresheet_version", "ALTER TABLE team ADD COLUMN scoresheet_version TEXT NOT NULL DEFAULT 'baseball_quebec'"),
             ("game", "league", "ALTER TABLE game ADD COLUMN league TEXT"),
             ("availability", "injury_inning", "ALTER TABLE availability ADD COLUMN injury_inning INTEGER"),
         ]

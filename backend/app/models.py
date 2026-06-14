@@ -26,6 +26,8 @@ class Team(SQLModel, table=True):
     division: Optional[str] = None
     classe: Optional[str] = None
     default_league: Optional[str] = None
+    lineup_print_version: str = Field(default="baseball_quebec")
+    scoresheet_version: str = Field(default="baseball_quebec")
 
     players: List["Player"] = Relationship(back_populates="team")
     admins: List["User"] = Relationship(back_populates="teams", link_model=UserTeamLink)

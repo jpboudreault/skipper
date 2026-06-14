@@ -167,7 +167,7 @@ async def test_batting_ingest(client: AsyncClient, session, monkeypatch):
     assert "Invalid file type" in ingest_res_txt.json()["detail"]
     
     # 3. Test successful parsing using mocked parse_scoresheet
-    async def mock_parse_scoresheet(image_bytes, content_type, players):
+    async def mock_parse_scoresheet(image_bytes, content_type, players, scoresheet_version=None):
         return [{
             "player_id": player["id"],
             "jersey": 24,

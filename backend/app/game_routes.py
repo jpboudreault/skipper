@@ -191,6 +191,7 @@ ALLOWED_IMAGE_TYPES = {"image/jpeg", "image/png", "image/webp", "image/heic", "i
 @router.post("/{game_id}/batting/ingest")
 async def ingest_batting(
     game: Game = Depends(get_active_game),
+    active_team: Team = Depends(get_active_team),
     session: Session = Depends(get_session),
     file: UploadFile = File(...),
 ):
@@ -238,8 +239,12 @@ async def ingest_batting(
     # Call Claude Vision
     from app.vision import parse_scoresheet
     try:
-        parsed = await parse_scoresheet(image_bytes, content_type, player_dicts)
+        parsed = await parse_scoresheet(
+            image_bytes, content_type, player_dicts, active_team.scoresheet_version
+        )
     except ValueError as e:
+        if "Unknown scoresheet version" in str(e):
+            raise HTTPException(status_code=400, detail=str(e))
         raise HTTPException(status_code=503, detail=str(e))
     except RuntimeError as e:
         raise HTTPException(status_code=502, detail=f"AI parsing failed: {str(e)}")
