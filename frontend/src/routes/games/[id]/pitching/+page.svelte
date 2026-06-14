@@ -133,7 +133,7 @@ beforeNavigate((event) => {
 			<p class="text-sm text-base-content/70 mt-1">Enter each pitching appearance for the game.</p>
 		</div>
 		<div class="flex gap-2">
-			<button onclick={addRow} class="btn btn-neutral btn-sm">+ Add Row</button>
+			<button onclick={() => addRow()} class="btn btn-neutral btn-sm">+ Add Row</button>
 			<button onclick={saveAll} disabled={saving} class="btn btn-success btn-sm shadow-md">
 				{#if saving}
 					<span class="loading loading-spinner loading-xs"></span>
@@ -177,14 +177,14 @@ beforeNavigate((event) => {
 									{/each}
 								</select>
 							</td>
-							<td class="text-center"><input type="number" min="1" step="any" value={app.inning_entered === 0 ? '' : app.inning_entered} oninput={(e) => { app.inning_entered = parseInt(e.target.value) || 0; app.ip_outs = calculateOuts(app.inning_entered, app.inning_exited); isDirty = true; }} class="input input-bordered input-sm text-center w-16" /></td>
-							<td class="text-center"><input type="number" min="1" step="any" value={app.inning_exited === 0 ? '' : app.inning_exited} oninput={(e) => { app.inning_exited = parseInt(e.target.value) || 0; app.ip_outs = calculateOuts(app.inning_entered, app.inning_exited); isDirty = true; }} class="input input-bordered input-sm text-center w-16" /></td>
-							<td class="text-center"><input type="number" min="0" value={app.ip_outs === 0 ? '' : app.ip_outs} oninput={(e) => { app.ip_outs = parseInt(e.target.value) || 0; isDirty = true; }} class="input input-bordered input-sm text-center w-16" /></td>
-							<td class="text-center"><input type="number" min="0" value={app.runs_allowed === 0 ? '' : app.runs_allowed} oninput={(e) => { app.runs_allowed = parseInt(e.target.value) || 0; isDirty = true; }} class="input input-bordered input-sm text-center w-14" /></td>
-							<td class="text-center"><input type="number" min="0" value={app.k === 0 ? '' : app.k} oninput={(e) => { app.k = parseInt(e.target.value) || 0; isDirty = true; }} class="input input-bordered input-sm text-center w-14" /></td>
-							<td class="text-center"><input type="number" min="0" value={app.bb === 0 ? '' : app.bb} oninput={(e) => { app.bb = parseInt(e.target.value) || 0; isDirty = true; }} class="input input-bordered input-sm text-center w-14" /></td>
-							<td class="text-center"><input type="number" min="0" value={app.hbp === 0 ? '' : app.hbp} oninput={(e) => { app.hbp = parseInt(e.target.value) || 0; isDirty = true; }} class="input input-bordered input-sm text-center w-14" /></td>
-							<td class="text-center"><input type="number" min="0" value={app.pitch_count === 0 ? '' : app.pitch_count} placeholder="—" oninput={(e) => { app.pitch_count = parseInt(e.target.value) || 0; isDirty = true; }} class="input input-bordered input-sm text-center w-16" /></td>
+							<td class="text-center"><input type="number" min="1" step="any" value={app.inning_entered === 0 ? '' : app.inning_entered} oninput={(e) => { const v = (e.currentTarget as HTMLInputElement).value; app.inning_entered = parseInt(v) || 0; app.ip_outs = calculateOuts(app.inning_entered, app.inning_exited); isDirty = true; }} class="input input-bordered input-sm text-center w-16" /></td>
+							<td class="text-center"><input type="number" min="1" step="any" value={app.inning_exited === 0 ? '' : app.inning_exited} oninput={(e) => { const v = (e.currentTarget as HTMLInputElement).value; app.inning_exited = parseInt(v) || 0; app.ip_outs = calculateOuts(app.inning_entered, app.inning_exited); isDirty = true; }} class="input input-bordered input-sm text-center w-16" /></td>
+							<td class="text-center"><input type="number" min="0" value={app.ip_outs === 0 ? '' : app.ip_outs} oninput={(e) => { const v = (e.currentTarget as HTMLInputElement).value; app.ip_outs = parseInt(v) || 0; isDirty = true; }} class="input input-bordered input-sm text-center w-16" /></td>
+							<td class="text-center"><input type="number" min="0" value={app.runs_allowed === 0 ? '' : app.runs_allowed} oninput={(e) => { const v = (e.currentTarget as HTMLInputElement).value; app.runs_allowed = parseInt(v) || 0; isDirty = true; }} class="input input-bordered input-sm text-center w-14" /></td>
+							<td class="text-center"><input type="number" min="0" value={app.k === 0 ? '' : app.k} oninput={(e) => { const v = (e.currentTarget as HTMLInputElement).value; app.k = parseInt(v) || 0; isDirty = true; }} class="input input-bordered input-sm text-center w-14" /></td>
+							<td class="text-center"><input type="number" min="0" value={app.bb === 0 ? '' : app.bb} oninput={(e) => { const v = (e.currentTarget as HTMLInputElement).value; app.bb = parseInt(v) || 0; isDirty = true; }} class="input input-bordered input-sm text-center w-14" /></td>
+							<td class="text-center"><input type="number" min="0" value={app.hbp === 0 ? '' : app.hbp} oninput={(e) => { const v = (e.currentTarget as HTMLInputElement).value; app.hbp = parseInt(v) || 0; isDirty = true; }} class="input input-bordered input-sm text-center w-14" /></td>
+							<td class="text-center"><input type="number" min="0" value={app.pitch_count === 0 ? '' : app.pitch_count} placeholder="—" oninput={(e) => { const v = (e.currentTarget as HTMLInputElement).value; app.pitch_count = parseInt(v) || 0; isDirty = true; }} class="input input-bordered input-sm text-center w-16" /></td>
 							<td class="text-center">
 								<button onclick={() => removeRow(i)} class="btn btn-ghost btn-error btn-xs">✕</button>
 							</td>

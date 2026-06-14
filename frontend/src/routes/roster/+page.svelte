@@ -197,7 +197,7 @@
 						</tr>
 					{/if}
 					
-					{#snippet playerRow(player)}
+					{#snippet playerRow(player: any)}
 						<tr class="hover:bg-base-200/50 transition-colors">
 							<td>
 								<input 

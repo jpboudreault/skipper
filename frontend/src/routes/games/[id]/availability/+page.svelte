@@ -43,7 +43,7 @@
 		if (existing) {
 			existing.status = newStatus;
 		} else {
-			availability.push({ game_id: parseInt($page.params.id), player_id: playerId, status: newStatus });
+			availability.push({ game_id: parseInt($page.params.id ?? ''), player_id: playerId, status: newStatus });
 		}
 		availability = [...availability];
 
