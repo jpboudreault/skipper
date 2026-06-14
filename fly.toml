@@ -1,0 +1,48 @@
+# fly.toml
+# Configuration for deploying Skipper (Lineup Planner) on Fly.io
+
+app = "your-fly-app-name" # Override at deploy time: see deploy.sh and .env
+primary_region = "yyz" # yyz = Toronto (closest active region)
+
+[build]
+  dockerfile = "Dockerfile"
+
+[env]
+  DATABASE_PATH = "/data/database.db"
+  VITE_API_URL = "" # Ensures absolute relative path browser requests in production
+  NODE_ENV = "production"
+  PORT = "8080"
+  BODY_SIZE_LIMIT = "26214400" # 25 MB size limit for SvelteKit adapter-node uploads
+
+[mounts]
+  source = "skipper_data"
+  destination = "/data"
+  initial_size = "1gb" # Minimal, cheap, and easily fits 100% within Fly's free credit threshold!
+
+[[services]]
+  internal_port = 8080
+  protocol = "tcp"
+  processes = ["app"]
+
+  [[services.ports]]
+    force_https = true
+    handlers = ["http"]
+    port = 80
+
+  [[services.ports]]
+    handlers = ["tls", "http"]
+    port = 443
+
+  [services.concurrency]
+    hard_limit = 25
+    soft_limit = 20
+    type = "connections"
+
+  # Lightweight healthcheck to make sure our unified container is responsive
+  [[services.http_checks]]
+    interval = "15s"
+    grace_period = "10s"
+    method = "get"
+    path = "/login"
+    protocol = "http"
+    timeout = "2s"

@@ -1,0 +1,65 @@
+# Environments
+venv/
+.env
+.venv/
+env/
+ENV/
+
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+build/
+develop-eggs/
+dist/
+downloads/
+eggs/
+.eggs/
+/lib/
+/lib64/
+!frontend/src/lib/
+parts/
+sdist/
+var/
+wheels/
+share/python-wheels/
+*.egg-info/
+.installed.cfg
+*.egg
+
+# Database
+database.db
+*.sqlite3
+*.db
+
+# OS generated files
+.DS_Store
+.DS_Store?
+._*
+.Spotlight-V100
+.Trashes
+ehthumbs.db
+Thumbs.db
+
+# Testing
+.last-run.json
+error-context.md
+test-results/
+playwright-report/
+.pytest_cache/
+__pycache__/
+
+# Frontend Build
+frontend/.vite/
+
+# Backup and config overrides for private deployment
+backup_private/
+backend/app/tenants.json
+bootstrap/rosters.csv
+bootstrap/games.csv
+
+# LLM instructions
+AGENTS.md
+

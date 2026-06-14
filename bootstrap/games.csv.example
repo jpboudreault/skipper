@@ -1,0 +1,5 @@
+team_id,date,opponent,venue,home_away,mode,game_type
+1,2026-06-01,Rival Stars,Home Field,H,develop,season
+1,2026-06-08,Blue Sox,Away Park,A,develop,season
+2,2026-06-02,Comets,Home Field,H,develop,season
+2,2026-06-09,Phoenix,Away Park,A,develop,season
