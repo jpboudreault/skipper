@@ -63,9 +63,33 @@ Optional — scoresheet photo ingestion:
 fly secrets set ANTHROPIC_API_KEY="your_key" --app your-unique-app-name
 ```
 
-## Step 6: Deploy
+## Step 6: Back up before you deploy
+
+Production data lives on the Fly volume (`/data/database.db`), not in the container image. A normal deploy keeps that data, but you should still back up before risky changes.
+
+`backup_db.sh` reads `FLY_APP_NAME` from `backend/.env` (same as `deploy.sh`) and saves a timestamped copy under `backup_private/`. That folder is gitignored — backups are never committed.
 
 ```bash
+# Download the live database
+bash backup_db.sh
+
+# Optional: also create an on-demand Fly volume snapshot
+bash backup_db.sh --snapshot
+```
+
+List existing Fly snapshots:
+
+```bash
+fly volumes list --app your-unique-app-name
+fly volumes snapshots list VOLUME_ID --app your-unique-app-name
+```
+
+## Step 7: Deploy
+
+Back up first, then deploy:
+
+```bash
+bash backup_db.sh
 bash deploy.sh
 ```
 
@@ -109,4 +133,4 @@ fly ssh console --app your-unique-app-name
 | `JWT_SECRET` | Optional (default ok) | **Required** — use `openssl rand -hex 32` |
 | `GOOGLE_CLIENT_ID` | Required for login | Required for login |
 | `DEV_MODE` | `true` — auto-creates users | `false` — only `tenants.json` emails allowed |
-| `FLY_APP_NAME` | Used by `deploy.sh` | Used by `deploy.sh` |
+| `FLY_APP_NAME` | Used by `deploy.sh` and `backup_db.sh` | Used by `deploy.sh` and `backup_db.sh` |

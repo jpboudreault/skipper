@@ -96,6 +96,7 @@ bootstrap/   Seed scripts and CSV templates
 Dockerfile   Unified production image
 fly.toml     Fly.io configuration
 deploy.sh    Deployment helper (reads FLY_APP_NAME from backend/.env)
+backup_db.sh Database backup helper (reads FLY_APP_NAME from backend/.env)
 ```
 
 ## License

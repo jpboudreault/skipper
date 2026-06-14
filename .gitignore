@@ -56,6 +56,7 @@ frontend/.vite/
 
 # Backup and config overrides for private deployment
 backup_private/
+backup_private/**
 backend/app/tenants.json
 bootstrap/rosters.csv
 bootstrap/games.csv
