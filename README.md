@@ -33,6 +33,39 @@ Skipper was originally built for **Baseball Québec** house-league and competiti
 | **Stats** | Season batting, pitching, and position breakdowns |
 | **Multi-tenant** | Team-based access via Google Sign-In; settings per team in `tenants.json` |
 
+## Screenshots
+
+Screenshots use **demo data only** — regenerate locally with [`bootstrap/`](bootstrap/README.md).
+
+<p align="center">
+  <img src="docs/screenshots/dashboard.png" alt="Dashboard with recent games and top performers" width="720">
+</p>
+<p align="center"><em>Dashboard — recent results, upcoming games, and top performers</em></p>
+
+<table>
+  <tr>
+    <td width="50%"><img src="docs/screenshots/availability.png" alt="Player availability board"></td>
+    <td width="50%"><img src="docs/screenshots/lineup.png" alt="Lineup grid and batting order"></td>
+  </tr>
+  <tr>
+    <td align="center"><em>Availability — drag players between columns</em></td>
+    <td align="center"><em>Lineup — inning grid with optimizer</em></td>
+  </tr>
+  <tr>
+    <td width="50%"><img src="docs/screenshots/batting-scorecard.png" alt="Batting scorecard entry"></td>
+    <td width="50%"><img src="docs/screenshots/pitching-scorecard.png" alt="Pitching scorecard entry"></td>
+  </tr>
+  <tr>
+    <td align="center"><em>Batting scorecard — manual entry or photo upload</em></td>
+    <td align="center"><em>Pitching appearances — IP, runs, strikeouts</em></td>
+  </tr>
+</table>
+
+<p align="center">
+  <img src="docs/screenshots/season-stats.png" alt="Season batting statistics table" width="720">
+</p>
+<p align="center"><em>Season stats — batting, pitching, and positions</em></p>
+
 ## League formats
 
 Lineup printouts and scoresheet photo parsing are **league-specific**. Configure each tenant in `backend/app/tenants.json`:
@@ -135,6 +168,7 @@ bash deploy.sh
 backend/     FastAPI API, SQLite database, lineup optimizer, league format plugins
 frontend/    SvelteKit UI, printable lineup formats
 bootstrap/   Seed scripts and CSV templates
+docs/        Screenshot gallery for README (`docs/screenshots/`)
 Dockerfile   Unified production image
 fly.toml     Fly.io configuration
 deploy.sh    Deployment helper (reads FLY_APP_NAME from backend/.env)
