@@ -1,6 +1,7 @@
 <script lang="ts">
 	import { onMount } from 'svelte';
 	import { apiFetch } from '$lib/api';
+	import { t } from '$lib/i18n';
 
 	let battingStats: any[] = $state([]);
 	let pitchingStats: any[] = $state([]);
@@ -147,9 +148,9 @@
 <div class="mx-auto max-w-[1400px] px-4 py-8 sm:px-6 lg:px-8">
 	<div class="sm:flex sm:items-center mb-6">
 		<div class="sm:flex-auto">
-			<h1 class="text-3xl font-extrabold text-base-content">Team Stats</h1>
+			<h1 class="text-3xl font-extrabold text-base-content">{$t('stats_title')}</h1>
 			<p class="mt-2 text-sm text-base-content/70">
-				Full season batting, pitching, and defensive statistics.
+				{$t('stats_description')}
 			</p>
 		</div>
 	</div>
@@ -159,26 +160,26 @@
 			class="tab tab-sm sm:tab-md {activeTab === 'batting' ? 'tab-active font-bold text-primary' : 'text-base-content/60'}"
 			onclick={() => selectTab('batting')}
 		>
-			Batting
+			{$t('stats_batting')}
 		</button>
 		<button
 			class="tab tab-sm sm:tab-md {activeTab === 'pitching' ? 'tab-active font-bold text-primary' : 'text-base-content/60'}"
 			onclick={() => selectTab('pitching')}
 		>
-			Pitching
+			{$t('stats_pitching')}
 		</button>
 		<button
 			class="tab tab-sm sm:tab-md {activeTab === 'position' ? 'tab-active font-bold text-primary' : 'text-base-content/60'}"
 			onclick={() => selectTab('position')}
 		>
-			Positions
+			{$t('stats_positions')}
 		</button>
 	</div>
 
 	{#if loading}
 		<div class="card bg-base-100 shadow-xl border border-base-300 p-16 text-center">
 			<span class="loading loading-spinner loading-lg text-primary"></span>
-			<p class="mt-2 text-sm text-base-content/60">Loading stats...</p>
+			<p class="mt-2 text-sm text-base-content/60">{$t('stats_loading')}</p>
 		</div>
 	{:else}
 		<div class="card bg-base-100 shadow-xl border border-base-300 overflow-hidden">
@@ -188,7 +189,7 @@
 						<thead>
 							<tr>
 								<th class="bg-base-200 text-base-content font-bold cursor-pointer hover:bg-base-300 select-none transition-colors" onclick={() => handleSort('jersey')}># {sortField === 'jersey' ? (sortDirection === 'asc' ? '▲' : '▼') : ''}</th>
-								<th class="bg-base-200 text-base-content font-bold cursor-pointer hover:bg-base-300 select-none transition-colors" onclick={() => handleSort('name')}>Name {sortField === 'name' ? (sortDirection === 'asc' ? '▲' : '▼') : ''}</th>
+								<th class="bg-base-200 text-base-content font-bold cursor-pointer hover:bg-base-300 select-none transition-colors" onclick={() => handleSort('name')}>{$t('stats_name')} {sortField === 'name' ? (sortDirection === 'asc' ? '▲' : '▼') : ''}</th>
 								<th class="bg-base-200 text-base-content font-bold text-center cursor-pointer hover:bg-base-300 select-none transition-colors" onclick={() => handleSort('pa')}>PA {sortField === 'pa' ? (sortDirection === 'asc' ? '▲' : '▼') : ''}</th>
 								<th class="bg-base-200 text-base-content font-bold text-center cursor-pointer hover:bg-base-300 select-none transition-colors" onclick={() => handleSort('avg')}>AVG {sortField === 'avg' ? (sortDirection === 'asc' ? '▲' : '▼') : ''}</th>
 								<th class="bg-base-200 text-base-content font-bold text-center cursor-pointer hover:bg-base-300 select-none transition-colors" onclick={() => handleSort('obp')}>OBP {sortField === 'obp' ? (sortDirection === 'asc' ? '▲' : '▼') : ''}</th>
@@ -235,7 +236,7 @@
 						<thead>
 							<tr>
 								<th class="bg-base-200 text-base-content font-bold cursor-pointer hover:bg-base-300 select-none transition-colors" onclick={() => handleSort('jersey')}># {sortField === 'jersey' ? (sortDirection === 'asc' ? '▲' : '▼') : ''}</th>
-								<th class="bg-base-200 text-base-content font-bold cursor-pointer hover:bg-base-300 select-none transition-colors" onclick={() => handleSort('name')}>Name {sortField === 'name' ? (sortDirection === 'asc' ? '▲' : '▼') : ''}</th>
+								<th class="bg-base-200 text-base-content font-bold cursor-pointer hover:bg-base-300 select-none transition-colors" onclick={() => handleSort('name')}>{$t('stats_name')} {sortField === 'name' ? (sortDirection === 'asc' ? '▲' : '▼') : ''}</th>
 								<th class="bg-base-200 text-base-content font-bold text-center cursor-pointer hover:bg-base-300 select-none transition-colors" onclick={() => handleSort('ip')}>IP {sortField === 'ip' ? (sortDirection === 'asc' ? '▲' : '▼') : ''}</th>
 								<th class="bg-base-200 text-info font-bold text-center cursor-pointer hover:bg-base-300 select-none transition-colors" onclick={() => handleSort('k_9')}>K/9 {sortField === 'k_9' ? (sortDirection === 'asc' ? '▲' : '▼') : ''}</th>
 								<th class="bg-base-200 text-info font-bold text-center cursor-pointer hover:bg-base-300 select-none transition-colors" onclick={() => handleSort('bb_9')}>BB/9 {sortField === 'bb_9' ? (sortDirection === 'asc' ? '▲' : '▼') : ''}</th>
@@ -273,21 +274,21 @@
 			{#if activeTab === 'position'}
 				<div class="p-4 bg-base-100 border-b border-base-200 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2">
 					<div>
-						<h2 class="text-lg font-bold text-base-content">Position Distribution</h2>
-						<p class="text-xs text-base-content/60">Shows where each player played throughout the season</p>
+						<h2 class="text-lg font-bold text-base-content">{$t('stats_position_distribution')}</h2>
+						<p class="text-xs text-base-content/60">{$t('stats_position_distribution_desc')}</p>
 					</div>
 					<div class="join border border-base-300 self-start sm:self-center bg-base-200 shadow-inner">
 						<button
 							class="join-item btn btn-xs {viewMode === 'percent' ? 'btn-primary font-bold' : 'btn-ghost'}"
 							onclick={() => (viewMode = 'percent')}
 						>
-							% Split
+							{$t('stats_percent_split')}
 						</button>
 						<button
 							class="join-item btn btn-xs {viewMode === 'count' ? 'btn-primary font-bold' : 'btn-ghost'}"
 							onclick={() => (viewMode = 'count')}
 						>
-							Inning Count
+							{$t('stats_inning_count')}
 						</button>
 					</div>
 				</div>
@@ -297,10 +298,10 @@
 						<thead>
 							<tr>
 								<th class="bg-base-200 text-base-content font-bold sticky left-0 z-20 cursor-pointer hover:bg-base-300 select-none transition-colors" onclick={() => handleSort('jersey')}># {sortField === 'jersey' ? (sortDirection === 'asc' ? '▲' : '▼') : ''}</th>
-								<th class="bg-base-200 text-base-content font-bold sticky left-12 z-20 border-r border-base-200 cursor-pointer hover:bg-base-300 select-none transition-colors" onclick={() => handleSort('name')}>Name {sortField === 'name' ? (sortDirection === 'asc' ? '▲' : '▼') : ''}</th>
-								<th class="bg-base-200 text-info font-bold text-center cursor-pointer hover:bg-base-300 select-none transition-colors" onclick={() => handleSort('field_pct')}>Infield % {sortField === 'field_pct' ? (sortDirection === 'asc' ? '▲' : '▼') : ''}</th>
-								<th class="bg-base-200 text-info font-bold text-center cursor-pointer hover:bg-base-300 select-none transition-colors" onclick={() => handleSort('bench_pct')}>Bench % {sortField === 'bench_pct' ? (sortDirection === 'asc' ? '▲' : '▼') : ''}</th>
-								<th class="bg-base-200 text-base-content font-bold text-center cursor-pointer hover:bg-base-300 select-none transition-colors" onclick={() => handleSort('total_innings')}>Total Innings {sortField === 'total_innings' ? (sortDirection === 'asc' ? '▲' : '▼') : ''}</th>
+								<th class="bg-base-200 text-base-content font-bold sticky left-12 z-20 border-r border-base-200 cursor-pointer hover:bg-base-300 select-none transition-colors" onclick={() => handleSort('name')}>{$t('stats_name')} {sortField === 'name' ? (sortDirection === 'asc' ? '▲' : '▼') : ''}</th>
+								<th class="bg-base-200 text-info font-bold text-center cursor-pointer hover:bg-base-300 select-none transition-colors" onclick={() => handleSort('field_pct')}>{$t('stats_infield_pct')} {sortField === 'field_pct' ? (sortDirection === 'asc' ? '▲' : '▼') : ''}</th>
+								<th class="bg-base-200 text-info font-bold text-center cursor-pointer hover:bg-base-300 select-none transition-colors" onclick={() => handleSort('bench_pct')}>{$t('stats_bench_pct')} {sortField === 'bench_pct' ? (sortDirection === 'asc' ? '▲' : '▼') : ''}</th>
+								<th class="bg-base-200 text-base-content font-bold text-center cursor-pointer hover:bg-base-300 select-none transition-colors" onclick={() => handleSort('total_innings')}>{$t('stats_total_innings')} {sortField === 'total_innings' ? (sortDirection === 'asc' ? '▲' : '▼') : ''}</th>
 								<th class="bg-base-200 text-base-content font-bold text-center cursor-pointer hover:bg-base-300 select-none transition-colors" onclick={() => handleSort('pos_0')}>Bench (X) {sortField === 'pos_0' ? (sortDirection === 'asc' ? '▲' : '▼') : ''}</th>
 								<th class="bg-base-200 text-base-content font-bold text-center cursor-pointer hover:bg-base-300 select-none transition-colors" onclick={() => handleSort('pos_1')}>P (1) {sortField === 'pos_1' ? (sortDirection === 'asc' ? '▲' : '▼') : ''}</th>
 								<th class="bg-base-200 text-base-content font-bold text-center cursor-pointer hover:bg-base-300 select-none transition-colors" onclick={() => handleSort('pos_2')}>C (2) {sortField === 'pos_2' ? (sortDirection === 'asc' ? '▲' : '▼') : ''}</th>
@@ -338,52 +339,52 @@
 	<!-- Legend -->
 	{#if !loading}
 		<div class="mt-6 card bg-base-100 border border-base-300 shadow-sm p-5">
-			<h3 class="text-sm font-bold text-base-content mb-3 uppercase tracking-wide opacity-70">Legend</h3>
+			<h3 class="text-sm font-bold text-base-content mb-3 uppercase tracking-wide opacity-70">{$t('stats_legend')}</h3>
 			{#if activeTab === 'batting'}
 				<div class="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-x-8 gap-y-1 text-xs text-base-content/70">
-					<span><strong class="text-base-content">PA</strong> — Plate Appearances</span>
-					<span><strong class="text-base-content">AB</strong> — At Bats</span>
-					<span><strong class="text-base-content">H</strong> — Hits</span>
-					<span><strong class="text-base-content">AVG</strong> — Batting Average (H/AB)</span>
-					<span><strong class="text-base-content">OBP</strong> — On-Base Percentage</span>
-					<span><strong class="text-base-content">SLG</strong> — Slugging Percentage</span>
-					<span><strong class="text-base-content">OPS</strong> — On-Base + Slugging</span>
-					<span><strong class="text-base-content">1B</strong> — Singles</span>
-					<span><strong class="text-base-content">2B</strong> — Doubles</span>
-					<span><strong class="text-base-content">3B</strong> — Triples</span>
-					<span><strong class="text-base-content">HR</strong> — Home Runs</span>
-					<span><strong class="text-base-content">BB</strong> — Base on Balls (Walk)</span>
-					<span><strong class="text-base-content">K</strong> — Strikeouts (KL + KS)</span>
+					<span><strong class="text-base-content">PA</strong> — {$t('stats_legend_pa')}</span>
+					<span><strong class="text-base-content">AB</strong> — {$t('stats_legend_ab')}</span>
+					<span><strong class="text-base-content">H</strong> — {$t('stats_legend_h')}</span>
+					<span><strong class="text-base-content">AVG</strong> — {$t('stats_legend_avg')}</span>
+					<span><strong class="text-base-content">OBP</strong> — {$t('stats_legend_obp')}</span>
+					<span><strong class="text-base-content">SLG</strong> — {$t('stats_legend_slg')}</span>
+					<span><strong class="text-base-content">OPS</strong> — {$t('stats_legend_ops')}</span>
+					<span><strong class="text-base-content">1B</strong> — {$t('stats_legend_1b')}</span>
+					<span><strong class="text-base-content">2B</strong> — {$t('stats_legend_2b')}</span>
+					<span><strong class="text-base-content">3B</strong> — {$t('stats_legend_3b')}</span>
+					<span><strong class="text-base-content">HR</strong> — {$t('stats_legend_hr')}</span>
+					<span><strong class="text-base-content">BB</strong> — {$t('stats_legend_bb')}</span>
+					<span><strong class="text-base-content">K</strong> — {$t('stats_legend_k')}</span>
 				</div>
 			{/if}
 			{#if activeTab === 'pitching'}
 				<div class="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-x-8 gap-y-1 text-xs text-base-content/70">
-					<span><strong class="text-base-content">IP</strong> — Innings Pitched</span>
-					<span><strong class="text-base-content">App</strong> — Appearances</span>
-					<span><strong class="text-base-content">K</strong> — Strikeouts</span>
-					<span><strong class="text-base-content">BB</strong> — Walks (Base on Balls)</span>
-					<span><strong class="text-base-content">HBP</strong> — Hit By Pitch</span>
-					<span><strong class="text-base-content">R</strong> — Runs Allowed</span>
-					<span><strong class="text-base-content text-info">K/9</strong> — Strikeouts per 9 innings</span>
-					<span><strong class="text-base-content text-info">BB/9</strong> — Walks per 9 innings</span>
-					<span><strong class="text-base-content text-info">HBP/9</strong> — Hit By Pitch per 9 innings</span>
-					<span><strong class="text-base-content text-info">R/9</strong> — Runs Allowed per 9 innings</span>
+					<span><strong class="text-base-content">IP</strong> — {$t('stats_legend_ip')}</span>
+					<span><strong class="text-base-content">App</strong> — {$t('stats_legend_app')}</span>
+					<span><strong class="text-base-content">K</strong> — {$t('stats_legend_k_pitching')}</span>
+					<span><strong class="text-base-content">BB</strong> — {$t('stats_legend_bb_pitching')}</span>
+					<span><strong class="text-base-content">HBP</strong> — {$t('stats_legend_hbp')}</span>
+					<span><strong class="text-base-content">R</strong> — {$t('stats_legend_r')}</span>
+					<span><strong class="text-base-content text-info">K/9</strong> — {$t('stats_legend_k9')}</span>
+					<span><strong class="text-base-content text-info">BB/9</strong> — {$t('stats_legend_bb9')}</span>
+					<span><strong class="text-base-content text-info">HBP/9</strong> — {$t('stats_legend_hbp9')}</span>
+					<span><strong class="text-base-content text-info">R/9</strong> — {$t('stats_legend_r9')}</span>
 				</div>
 			{/if}
 			{#if activeTab === 'position'}
 				<div class="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-x-8 gap-y-1 text-xs text-base-content/70">
-					<span><strong class="text-base-content text-info">Infield %</strong> — % of innings played in the field</span>
-					<span><strong class="text-base-content text-info">Bench %</strong> — % of innings on the bench</span>
-					<span><strong class="text-base-content">P (1)</strong> — Pitcher</span>
-					<span><strong class="text-base-content">C (2)</strong> — Catcher</span>
-					<span><strong class="text-base-content">1B (3)</strong> — First Base</span>
-					<span><strong class="text-base-content">2B (4)</strong> — Second Base</span>
-					<span><strong class="text-base-content">3B (5)</strong> — Third Base</span>
-					<span><strong class="text-base-content">SS (6)</strong> — Shortstop</span>
-					<span><strong class="text-base-content">LF (7)</strong> — Left Field</span>
-					<span><strong class="text-base-content">CF (8)</strong> — Center Field</span>
-					<span><strong class="text-base-content">RF (9)</strong> — Right Field</span>
-					<span><strong class="text-base-content">X</strong> — Bench (not fielding)</span>
+					<span><strong class="text-base-content text-info">{$t('stats_infield_pct')}</strong> — {$t('stats_legend_infield_pct')}</span>
+					<span><strong class="text-base-content text-info">{$t('stats_bench_pct')}</strong> — {$t('stats_legend_bench_pct')}</span>
+					<span><strong class="text-base-content">P (1)</strong> — {$t('stats_legend_p')}</span>
+					<span><strong class="text-base-content">C (2)</strong> — {$t('stats_legend_c')}</span>
+					<span><strong class="text-base-content">1B (3)</strong> — {$t('stats_legend_1b_pos')}</span>
+					<span><strong class="text-base-content">2B (4)</strong> — {$t('stats_legend_2b_pos')}</span>
+					<span><strong class="text-base-content">3B (5)</strong> — {$t('stats_legend_3b_pos')}</span>
+					<span><strong class="text-base-content">SS (6)</strong> — {$t('stats_legend_ss')}</span>
+					<span><strong class="text-base-content">LF (7)</strong> — {$t('stats_legend_lf')}</span>
+					<span><strong class="text-base-content">CF (8)</strong> — {$t('stats_legend_cf')}</span>
+					<span><strong class="text-base-content">RF (9)</strong> — {$t('stats_legend_rf')}</span>
+					<span><strong class="text-base-content">X</strong> — {$t('stats_legend_x')}</span>
 				</div>
 			{/if}
 		</div>

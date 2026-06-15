@@ -1,10 +1,17 @@
 <script lang="ts">
 	import { onMount } from 'svelte';
 	import { apiFetch } from '$lib/api';
+	import { t, translate, formatLocaleDate } from '$lib/i18n';
 
 	let dashboardData: any = $state(null);
 	let loading = $state(true);
 	let error = $state('');
+
+	const dateFormatOptions: Intl.DateTimeFormatOptions = {
+		weekday: 'short',
+		month: 'short',
+		day: 'numeric'
+	};
 
 	onMount(async () => {
 		// Wait a tiny bit for layout to set activeTeamId if needed
@@ -20,27 +27,22 @@
 				if (res.ok) {
 					dashboardData = await res.json();
 				} else {
-					error = 'Failed to load dashboard';
+					error = translate('dashboard_failed_load');
 				}
 			} catch (e) {
-				error = 'Error connecting to server';
+				error = translate('dashboard_error_connecting');
 				console.error(e);
 			} finally {
 				loading = false;
 			}
 		}, 100);
 	});
-
-	function formatDate(dateStr: string) {
-		if (!dateStr) return '';
-		return new Date(dateStr).toLocaleDateString('en-GB', { weekday: 'short', month: 'short', day: 'numeric' });
-	}
 </script>
 
 <div class="max-w-7xl mx-auto space-y-6">
 	<div class="flex items-center justify-between">
-		<h1 class="text-3xl font-extrabold text-base-content">Dashboard</h1>
-		<a href="/stats" class="btn btn-primary btn-sm shadow-md">Full Season Stats</a>
+		<h1 class="text-3xl font-extrabold text-base-content">{$t('dashboard_title')}</h1>
+		<a href="/stats" class="btn btn-primary btn-sm shadow-md">{$t('dashboard_full_season_stats')}</a>
 	</div>
 
 	{#if loading}
@@ -59,11 +61,11 @@
 				<!-- Last Game -->
 				<div class="card bg-base-100 shadow-xl border border-base-300">
 					<div class="card-body p-6">
-						<h2 class="card-title text-lg border-b border-base-200 pb-2">Last Game Result</h2>
+						<h2 class="card-title text-lg border-b border-base-200 pb-2">{$t('dashboard_last_game_result')}</h2>
 						{#if dashboardData.last_game}
 							<div class="mt-2 text-center">
 								<div class="text-sm text-base-content/60 font-semibold uppercase tracking-wider mb-2">
-									{formatDate(dashboardData.last_game.date)}
+									{formatLocaleDate(dashboardData.last_game.date, dateFormatOptions)}
 								</div>
 								<div class="flex justify-center items-center gap-4 text-2xl font-black">
 									<div class="flex flex-col items-center">
@@ -85,11 +87,11 @@
 									</div>
 								</div>
 								<div class="mt-4">
-									<a href="/games/{dashboardData.last_game.id}/batting" class="btn btn-outline btn-xs">Box Score</a>
+									<a href="/games/{dashboardData.last_game.id}/batting" class="btn btn-outline btn-xs">{$t('dashboard_box_score')}</a>
 								</div>
 							</div>
 						{:else}
-							<p class="text-base-content/50 italic py-4">No completed games yet.</p>
+							<p class="text-base-content/50 italic py-4">{$t('dashboard_no_completed_games')}</p>
 						{/if}
 					</div>
 				</div>
@@ -98,8 +100,8 @@
 				<div class="card bg-base-100 shadow-xl border border-base-300">
 					<div class="card-body p-6">
 						<div class="flex items-center justify-between border-b border-base-200 pb-2 mb-4">
-							<h2 class="card-title text-lg">Upcoming Games</h2>
-							<a href="/games?tab=pitching-plan" class="btn btn-ghost btn-xs text-primary">Pitching Plan</a>
+							<h2 class="card-title text-lg">{$t('dashboard_upcoming_games')}</h2>
+							<a href="/games?tab=pitching-plan" class="btn btn-ghost btn-xs text-primary">{$t('dashboard_pitching_plan')}</a>
 						</div>
 
 						{#if dashboardData.upcoming_games && dashboardData.upcoming_games.length > 0}
@@ -107,22 +109,22 @@
 								{#each dashboardData.upcoming_games as game}
 									<div class="bg-base-200/50 p-3 rounded-lg border border-base-200">
 										<div class="flex justify-between items-center mb-2">
-											<span class="font-bold">{formatDate(game.date)}</span>
-											<span class="badge badge-sm {game.home_away === 'H' ? 'badge-neutral' : 'badge-outline'}">{game.home_away === 'H' ? 'Home' : 'Away'}</span>
+											<span class="font-bold">{formatLocaleDate(game.date, dateFormatOptions)}</span>
+											<span class="badge badge-sm {game.home_away === 'H' ? 'badge-neutral' : 'badge-outline'}">{game.home_away === 'H' ? $t('common_home') : $t('common_away')}</span>
 										</div>
-										<div class="text-lg font-bold mb-3">vs {game.opponent || 'TBD'}</div>
+										<div class="text-lg font-bold mb-3">{$t('dashboard_vs')} {game.opponent || $t('dashboard_tbd')}</div>
 										<div class="flex gap-2">
-											<a href="/games/{game.id}/lineup" class="btn btn-primary btn-sm flex-1">Lineup</a>
-											<a href="/games/{game.id}/availability" class="btn btn-outline btn-sm flex-1">Availabilities</a>
+											<a href="/games/{game.id}/lineup" class="btn btn-primary btn-sm flex-1">{$t('dashboard_lineup')}</a>
+											<a href="/games/{game.id}/availability" class="btn btn-outline btn-sm flex-1">{$t('dashboard_availabilities')}</a>
 										</div>
 									</div>
 								{/each}
 							</div>
 							<div class="mt-4 text-center">
-								<a href="/games" class="text-primary text-sm font-semibold hover:underline">View All Games</a>
+								<a href="/games" class="text-primary text-sm font-semibold hover:underline">{$t('dashboard_view_all_games')}</a>
 							</div>
 						{:else}
-							<p class="text-base-content/50 italic">No upcoming games scheduled.</p>
+							<p class="text-base-content/50 italic">{$t('dashboard_no_upcoming')}</p>
 						{/if}
 					</div>
 				</div>
@@ -134,24 +136,24 @@
 					<div class="card-body p-6">
 						<div class="flex items-center justify-between mb-4 border-b border-base-200 pb-2">
 							<div>
-								<h2 class="card-title text-xl">Individual Statistics</h2>
-								<p class="text-sm text-base-content/60">Top performers in the last 5 games</p>
+								<h2 class="card-title text-xl">{$t('dashboard_individual_stats')}</h2>
+								<p class="text-sm text-base-content/60">{$t('dashboard_top_performers')}</p>
 							</div>
-							<a href="/stats" class="btn btn-ghost btn-sm text-primary">Full Season</a>
+							<a href="/stats" class="btn btn-ghost btn-sm text-primary">{$t('dashboard_full_season')}</a>
 						</div>
 
 						<div class="grid grid-cols-1 md:grid-cols-2 gap-8 mt-4">
 							<!-- Batting Leaders -->
 							<div>
 								<h3 class="font-bold text-lg mb-3 flex items-center gap-2">
-									<span class="text-2xl">⚾</span> Top Hitters (by OPS)
+									<span class="text-2xl">⚾</span> {$t('dashboard_top_hitters')}
 								</h3>
 								{#if dashboardData.recent_batting && dashboardData.recent_batting.length > 0}
 									<div class="overflow-x-auto">
 										<table class="table table-sm">
 											<thead class="bg-base-200 text-base-content">
 												<tr>
-													<th>Player</th>
+													<th>{$t('common_player')}</th>
 													<th class="text-center">AVG</th>
 													<th class="text-center">OBP</th>
 													<th class="text-center font-bold text-primary">OPS</th>
@@ -170,21 +172,21 @@
 										</table>
 									</div>
 								{:else}
-									<p class="text-base-content/50 italic text-sm">No batting stats for the last 5 games.</p>
+									<p class="text-base-content/50 italic text-sm">{$t('dashboard_no_batting_stats')}</p>
 								{/if}
 							</div>
 
 							<!-- Pitching Leaders -->
 							<div>
 								<h3 class="font-bold text-lg mb-3 flex items-center gap-2">
-									<span class="text-2xl">🔥</span> Top Pitchers (by IP)
+									<span class="text-2xl">🔥</span> {$t('dashboard_top_pitchers')}
 								</h3>
 								{#if dashboardData.recent_pitching && dashboardData.recent_pitching.length > 0}
 									<div class="overflow-x-auto">
 										<table class="table table-sm">
 											<thead class="bg-base-200 text-base-content">
 												<tr>
-													<th>Player</th>
+													<th>{$t('common_player')}</th>
 													<th class="text-center">K/9</th>
 													<th class="text-center">RA/9</th>
 													<th class="text-center font-bold text-primary">IP</th>
@@ -203,7 +205,7 @@
 										</table>
 									</div>
 								{:else}
-									<p class="text-base-content/50 italic text-sm">No pitching stats for the last 5 games.</p>
+									<p class="text-base-content/50 italic text-sm">{$t('dashboard_no_pitching_stats')}</p>
 								{/if}
 							</div>
 						</div>

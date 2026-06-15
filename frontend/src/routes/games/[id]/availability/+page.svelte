@@ -2,6 +2,7 @@
 	import { page } from '$app/stores';
 	import { onMount } from 'svelte';
 	import { apiFetch } from '$lib/api';
+	import { t, translate, statusLabel } from '$lib/i18n';
 
 	let players: any[] = $state([]);
 	let availability: any[] = $state([]);
@@ -58,7 +59,7 @@
 			console.log('[availability] response status:', res.status);
 			if (!res.ok) {
 				if (res.status === 401) {
-					alert('Session expired. Please log in again.');
+					alert(translate('common_session_expired'));
 					window.location.href = '/login';
 				}
 				throw new Error(`HTTP ${res.status}`);
@@ -190,7 +191,7 @@
 {#if loading}
 	<div class="p-16 text-center">
 		<span class="loading loading-spinner loading-lg text-primary"></span>
-		<p class="mt-2 text-sm text-base-content/60">Loading availability...</p>
+		<p class="mt-2 text-sm text-base-content/60">{$t('availability_loading')}</p>
 	</div>
 {:else}
 	{#snippet availabilitySection(title: string, description: string, isCoach: boolean)}
@@ -213,7 +214,7 @@
 							{status === 'absent' ? 'text-error' : ''}
 							{status === 'late' ? 'text-warning' : ''}
 						">
-							{status}
+							{statusLabel(status)}
 						</h3>
 						<span class="badge badge-neutral">{players.filter(p => !!p.is_coach === isCoach && getStatus(p.id) === status).length}</span>
 					</div>
@@ -234,13 +235,13 @@
 								{#if player.is_coach}
 									<span class="badge badge-xs badge-info text-[9px] uppercase ml-auto">{player.coach_type === 'head' ? 'HC' : 'AC'}</span>
 								{:else if player.is_substitute}
-									<span class="badge badge-xs badge-neutral text-[9px] uppercase ml-auto">Sub</span>
+									<span class="badge badge-xs badge-neutral text-[9px] uppercase ml-auto">{$t('lineup_sub')}</span>
 								{/if}
 								<!-- Mobile tap button: cycle through statuses -->
 								<button
 									class="btn btn-ghost btn-xs ml-auto md:hidden"
 									onclick={(e) => { e.stopPropagation(); cycleStatus(player.id); }}
-									title="Tap to change status"
+									title={$t('availability_tap_change_status')}
 								>
 									{#if status === 'available'}
 										<span class="text-error text-base">→</span>
@@ -258,6 +259,6 @@
 		</div>
 	{/snippet}
 
-	{@render availabilitySection('Player Availability', 'Drag players into columns, or tap the arrow to cycle status.', false)}
-	{@render availabilitySection('Coach Availability', 'Drag coaches into columns, or tap the arrow to cycle status.', true)}
+	{@render availabilitySection($t('availability_player_availability'), $t('availability_player_availability_desc'), false)}
+	{@render availabilitySection($t('availability_coach_availability'), $t('availability_coach_availability_desc'), true)}
 {/if}

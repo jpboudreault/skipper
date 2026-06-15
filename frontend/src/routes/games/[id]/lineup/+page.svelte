@@ -3,6 +3,7 @@
 	import { onMount } from 'svelte';
 	import { apiFetch } from '$lib/api';
 	import { getLineupPrintComponent } from '$lib/league_formats';
+	import { t, translate, statusLabel } from '$lib/i18n';
 
 	let players: any[] = $state([]);
 	let game: any = $state(null);
@@ -14,6 +15,7 @@
 	let loading = $state(true);
 	let solving = $state(false);
 	let solveStatus = $state('');
+	let solveIsError = $state(false);
 	let savingOrder = $state(false);
 	let autoSaving = $state(false);
 	let injuryMode = $state(false);
@@ -178,7 +180,7 @@
 			}
 		} catch (e) {
 			console.error(e);
-			alert('Failed to save batting order');
+			alert(translate('lineup_failed_save_batting_order'));
 		} finally {
 			savingOrder = false;
 		}
@@ -220,7 +222,7 @@
 			availability = [...availability];
 		} catch(e) {
 			console.error(e);
-			alert("Failed to update injury status");
+			alert(translate('lineup_failed_update_injury'));
 		}
 	}
 
@@ -304,6 +306,7 @@
 	async function fillGaps() {
 		solving = true;
 		solveStatus = '';
+		solveIsError = false;
 		await saveLineup();
 		try {
 			const res = await apiFetch(`/games/${$page.params.id}/solve`, {
@@ -312,15 +315,17 @@
 			});
 			if (res.ok) {
 				const result = await res.json();
-				solveStatus = `Solved (${result.status})`;
+				solveStatus = translate('lineup_solved', { status: result.status });
 				const lRes = await apiFetch(`/games/${$page.params.id}/lineup`);
 				if (lRes.ok) lineup = await lRes.json();
 			} else {
 				const err = await res.json();
-				solveStatus = `Error: ${err.detail}`;
+				solveIsError = true;
+				solveStatus = translate('lineup_error_prefix', { message: err.detail });
 			}
 		} catch (e: any) {
-			solveStatus = `Error: ${e.message}`;
+			solveIsError = true;
+			solveStatus = translate('lineup_error_prefix', { message: e.message });
 		} finally {
 			solving = false;
 		}
@@ -350,42 +355,42 @@
 	<div class="space-y-4">
 		<div class="flex items-center justify-between flex-wrap gap-4">
 			<div>
-				<h2 class="text-xl font-bold text-base-content">Lineup Grid & Batting Order</h2>
-				<p class="text-sm text-base-content/70">Drag rows to set batting order. Set positions, lock, then Fill Gaps.</p>
+				<h2 class="text-xl font-bold text-base-content">{$t('lineup_title')}</h2>
+				<p class="text-sm text-base-content/70">{$t('lineup_description')}</p>
 			</div>
 			<div class="flex gap-2 items-center flex-wrap">
 				{#if autoSaving}
 					<span class="loading loading-spinner loading-xs text-primary mr-2"></span>
-					<span class="text-xs text-base-content/60 mr-2">Saving...</span>
+					<span class="text-xs text-base-content/60 mr-2">{$t('lineup_saving')}</span>
 				{:else}
 					<span class="badge badge-success badge-outline gap-1 mr-2">
-						✓ Saved
+						✓ {$t('lineup_saved')}
 					</span>
 				{/if}
 
 				<button onclick={() => injuryMode = !injuryMode} class="btn btn-sm shadow-md gap-1 {injuryMode ? 'btn-error text-error-content' : 'btn-outline border-base-300'}">
-					🩹 {injuryMode ? 'Exit Injury Mode' : 'Injury Mode'}
+					🩹 {injuryMode ? $t('lineup_exit_injury_mode') : $t('lineup_injury_mode')}
 				</button>
 				<button onclick={() => window.print()} class="btn btn-neutral btn-sm shadow-md gap-1">
-					🖨️ Print Lineup
+					🖨️ {$t('lineup_print_lineup')}
 				</button>
 				{#if hasUnlockedValues}
 					<button onclick={clearUnlocked} class="btn btn-warning btn-sm shadow-md gap-1">
-						🧹 Clear Unlocked
+						🧹 {$t('lineup_clear_unlocked')}
 					</button>
 				{/if}
 				<button onclick={fillGaps} disabled={solving} class="btn btn-primary btn-sm shadow-md gap-1">
 					{#if solving}
-						<span class="loading loading-spinner loading-xs"></span> Solving...
+						<span class="loading loading-spinner loading-xs"></span> {$t('lineup_solving')}
 					{:else}
-						⚡ Fill Gaps
+						⚡ {$t('lineup_fill_gaps')}
 					{/if}
 				</button>
 			</div>
 		</div>
 
 		{#if solveStatus}
-			<div class="alert {solveStatus.startsWith('Error') ? 'alert-error' : 'alert-success'} py-3 shadow-sm rounded-lg flex items-center justify-between">
+			<div class="alert {solveIsError ? 'alert-error' : 'alert-success'} py-3 shadow-sm rounded-lg flex items-center justify-between">
 				<div class="flex items-center gap-2">
 					<span>{solveStatus}</span>
 				</div>
@@ -396,10 +401,10 @@
 			<div class="alert bg-base-100 border border-base-300 py-3 shadow-sm rounded-lg flex items-center justify-between">
 				<div class="flex items-center gap-2">
 					<span class="badge badge-md {game.mode === 'compete' ? 'badge-info' : 'badge-success'}">
-						{game.mode === 'compete' ? '🏆 Compete Mode' : '📚 Develop Mode'}
+						{game.mode === 'compete' ? $t('lineup_compete_mode') : $t('lineup_develop_mode')}
 					</span>
 					<span class="text-sm text-base-content/70">
-						{game.mode === 'compete' ? 'Optimizer maximizes fielding quality with late-inning weighting.' : 'Optimizer maximizes position variety and developmental exposure.'}
+						{game.mode === 'compete' ? $t('lineup_compete_desc') : $t('lineup_develop_desc')}
 					</span>
 				</div>
 			</div>
@@ -412,23 +417,23 @@
 						<thead class="bg-base-200">
 							<tr>
 								<th class="bg-base-300 text-base-content font-bold w-64 sticky left-0 z-20">
-									Order & Player
+									{$t('lineup_order_player')}
 								</th>
 								{#each Array(numInnings) as _, inn}
 									<th class="bg-base-200 text-base-content font-bold text-center w-24">
 										<div class="flex flex-col items-center justify-center gap-1 py-1">
-											<span>Inning {inn + 1}</span>
+											<span>{$t('lineup_inning', { number: inn + 1 })}</span>
 											<button
 												onclick={() => toggleInningLock(inn + 1)}
 												class="btn btn-xs min-h-0 h-6 px-2 bg-base-100/50 border border-base-300 hover:bg-base-300 transition-colors {isInningLocked(inn + 1) ? 'text-warning border-warning/30' : 'text-base-content/50'}"
-												title={isInningLocked(inn + 1) ? 'Unlock Inning' : 'Lock Inning'}
+												title={isInningLocked(inn + 1) ? $t('lineup_unlock_inning') : $t('lineup_lock_inning')}
 											>
-												{isInningLocked(inn + 1) ? '🔓 Unlock' : '🔒 Lock'}
+												{isInningLocked(inn + 1) ? '🔓' : '🔒'}
 											</button>
 										</div>
 									</th>
 								{/each}
-								<th class="bg-base-200 text-base-content font-bold text-center w-16">Bench</th>
+								<th class="bg-base-200 text-base-content font-bold text-center w-16">{$t('lineup_bench')}</th>
 							</tr>
 						</thead>
 						<tbody>
@@ -457,12 +462,12 @@
 												<span class="truncate md:hidden">{player.first_name} {player.last_name.charAt(0)}.</span>
 												<span class="truncate hidden md:inline">{player.first_name} {player.last_name}</span>
 												{#if player.is_substitute}
-													<span class="badge badge-xs badge-neutral text-[9px] ml-1 uppercase">Sub</span>
+													<span class="badge badge-xs badge-neutral text-[9px] ml-1 uppercase">{$t('lineup_sub')}</span>
 												{/if}
 												
 												{#if avail && avail.status !== 'available'}
 													<span class="badge badge-xs {avail.status === 'late' ? 'badge-warning' : 'badge-error'} ml-auto uppercase text-[9px]">
-														{avail.status}
+														{statusLabel(avail.status)}
 													</span>
 												{/if}
 												{#if avail && avail.injury_inning}
@@ -484,7 +489,7 @@
 													</button>
 												{:else}
 													{#if isInjured(player.id, inn + 1)}
-														<div class="text-center text-error text-xs font-bold w-16 mx-auto cursor-not-allowed">🏥 Bench</div>
+														<div class="text-center text-error text-xs font-bold w-16 mx-auto cursor-not-allowed">🏥 {$t('lineup_injured_bench')}</div>
 													{:else}
 														<div class="flex flex-col items-center gap-0.5">
 															<select
@@ -512,7 +517,7 @@
 						<tfoot class="bg-base-300 font-bold">
 							<tr>
 								<td class="py-3 sticky left-0 bg-base-300 text-base-content font-bold border-r border-base-300 text-right pr-4">
-									Total Points
+									{$t('lineup_total_points')}
 								</td>
 								{#each Array(numInnings) as _, inn}
 									<td class="text-center text-primary font-bold border-r border-base-200 last:border-r-0">
@@ -528,17 +533,17 @@
 
 			<!-- Validation summary -->
 			<div class="card bg-base-100 border border-base-300 shadow-xl p-5">
-				<h3 class="text-md font-bold text-base-content mb-3 border-b border-base-200 pb-1">Lineup Field Validation</h3>
+				<h3 class="text-md font-bold text-base-content mb-3 border-b border-base-200 pb-1">{$t('lineup_validation_title')}</h3>
 				<div class="grid grid-cols-1 sm:grid-cols-2 gap-3 text-sm">
 					{#each Array(numInnings) as _, inn}
 						{@const assigned = lineup.filter(l => l.inning === inn + 1 && l.position > 0 && availablePlayerIds.has(l.player_id)).length}
 						{@const benched = lineup.filter(l => l.inning === inn + 1 && l.position === 0 && availablePlayerIds.has(l.player_id)).length}
 						<div class="flex items-center gap-2 flex-wrap">
-							<span class="font-semibold text-base-content/80">Inning {inn + 1}:</span>
+							<span class="font-semibold text-base-content/80">{$t('lineup_inning', { number: inn + 1 })}:</span>
 							<span class="badge {assigned === 9 ? 'badge-success text-success-content' : 'badge-warning'} badge-sm font-bold">
-								{assigned}/9 fielders
+								{$t('lineup_fielders', { count: assigned })}
 							</span>
-							<span class="badge badge-ghost badge-sm">{benched} benched</span>
+							<span class="badge badge-ghost badge-sm">{$t('lineup_benched', { count: benched })}</span>
 							{#each [1,2,3,4,5,6,7,8,9] as pos}
 								{@const count = getPositionCount(inn + 1, pos)}
 								{#if count > 1}

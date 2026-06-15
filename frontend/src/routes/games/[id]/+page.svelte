@@ -2,6 +2,7 @@
 	import { page } from '$app/stores';
 	import { onMount } from 'svelte';
 	import { apiFetch } from '$lib/api';
+	import { t } from '$lib/i18n';
 
 	let game: any = $state(null);
 	let editing = $state(false);
@@ -32,10 +33,10 @@
 
 {#if game}
 	<div class="card bg-base-100 border border-base-300 shadow-xl p-6 space-y-4">
-		<h2 class="text-xl font-bold text-base-content border-b border-base-200 pb-2">Game Details</h2>
+		<h2 class="text-xl font-bold text-base-content border-b border-base-200 pb-2">{$t('game_overview_game_details')}</h2>
 		<div class="grid grid-cols-1 sm:grid-cols-3 gap-4">
 			<div class="form-control">
-				<label for="edit_date" class="label"><span class="label-text font-semibold">Date</span></label>
+				<label for="edit_date" class="label"><span class="label-text font-semibold">{$t('common_date')}</span></label>
 				{#if editing}
 					<input id="edit_date" type="date" bind:value={game.date} class="input input-bordered input-sm w-full" />
 				{:else}
@@ -43,15 +44,15 @@
 				{/if}
 			</div>
 			<div class="form-control">
-				<label for="edit_game_number" class="label"><span class="label-text font-semibold">Game #</span></label>
+				<label for="edit_game_number" class="label"><span class="label-text font-semibold">{$t('games_game_number')}</span></label>
 				{#if editing}
-					<input id="edit_game_number" type="text" bind:value={game.game_number} placeholder="Optional game #" class="input input-bordered input-sm w-full" />
+					<input id="edit_game_number" type="text" bind:value={game.game_number} placeholder={$t('games_placeholder_game_number')} class="input input-bordered input-sm w-full" />
 				{:else}
 					<p class="text-base-content font-medium ml-1">{game.game_number || '—'}</p>
 				{/if}
 			</div>
 			<div class="form-control">
-				<label for="edit_opponent" class="label"><span class="label-text font-semibold">Opponent</span></label>
+				<label for="edit_opponent" class="label"><span class="label-text font-semibold">{$t('games_opponent')}</span></label>
 				{#if editing}
 					<input id="edit_opponent" type="text" bind:value={game.opponent} class="input input-bordered input-sm w-full" />
 				{:else}
@@ -59,7 +60,7 @@
 				{/if}
 			</div>
 			<div class="form-control">
-				<label for="edit_venue" class="label"><span class="label-text font-semibold">Venue</span></label>
+				<label for="edit_venue" class="label"><span class="label-text font-semibold">{$t('games_venue')}</span></label>
 				{#if editing}
 					<input id="edit_venue" type="text" bind:value={game.venue} class="input input-bordered input-sm w-full" />
 				{:else}
@@ -67,33 +68,33 @@
 				{/if}
 			</div>
 			<div class="form-control">
-				<label for="edit_home_away" class="label"><span class="label-text font-semibold">Home/Away</span></label>
+				<label for="edit_home_away" class="label"><span class="label-text font-semibold">{$t('games_home_away')}</span></label>
 				{#if editing}
 					<select id="edit_home_away" bind:value={game.home_away} class="select select-bordered select-sm w-full">
-						<option value="H">Home</option>
-						<option value="A">Away</option>
+						<option value="H">{$t('common_home')}</option>
+						<option value="A">{$t('common_away')}</option>
 					</select>
 				{:else}
-					<p class="text-base-content font-medium ml-1">{game.home_away === 'H' ? 'Home' : 'Away'}</p>
+					<p class="text-base-content font-medium ml-1">{game.home_away === 'H' ? $t('common_home') : $t('common_away')}</p>
 				{/if}
 			</div>
 			<div class="form-control">
-				<label for="edit_mode" class="label"><span class="label-text font-semibold">Optimizer Mode</span></label>
+				<label for="edit_mode" class="label"><span class="label-text font-semibold">{$t('games_optimizer_mode')}</span></label>
 				{#if editing}
 					<select id="edit_mode" bind:value={game.mode} class="select select-bordered select-sm w-full">
-						<option value="compete">Compete</option>
-						<option value="develop">Develop</option>
+						<option value="compete">{$t('games_mode_compete')}</option>
+						<option value="develop">{$t('games_mode_develop')}</option>
 					</select>
 				{:else}
 					<div class="ml-1">
 						<span class="badge {game.mode === 'compete' ? 'badge-info' : 'badge-success'}">
-							{game.mode}
+							{game.mode === 'compete' ? $t('games_mode_compete') : $t('games_mode_develop')}
 						</span>
 					</div>
 				{/if}
 			</div>
 			<div class="form-control">
-				<label for="edit_league" class="label"><span class="label-text font-semibold">League</span></label>
+				<label for="edit_league" class="label"><span class="label-text font-semibold">{$t('games_league')}</span></label>
 				{#if editing}
 					<input id="edit_league" type="text" bind:value={game.league} class="input input-bordered input-sm w-full" />
 				{:else}
@@ -101,15 +102,15 @@
 				{/if}
 			</div>
 			<div class="form-control">
-				<label for="edit_innings" class="label"><span class="label-text font-semibold">Innings Played</span></label>
+				<label for="edit_innings" class="label"><span class="label-text font-semibold">{$t('game_overview_innings_played')}</span></label>
 				{#if editing}
 					<input id="edit_innings" type="number" bind:value={game.innings_played} class="input input-bordered input-sm w-full" />
 				{:else}
-					<p class="text-base-content font-medium ml-1">{game.innings_played || 'Default'}</p>
+					<p class="text-base-content font-medium ml-1">{game.innings_played || $t('common_default')}</p>
 				{/if}
 			</div>
 			<div class="form-control">
-				<label for="edit_runs_for" class="label"><span class="label-text font-semibold">Runs For</span></label>
+				<label for="edit_runs_for" class="label"><span class="label-text font-semibold">{$t('game_overview_runs_for')}</span></label>
 				{#if editing}
 					<input id="edit_runs_for" type="number" bind:value={game.result_runs_for} class="input input-bordered input-sm w-full" />
 				{:else}
@@ -117,7 +118,7 @@
 				{/if}
 			</div>
 			<div class="form-control">
-				<label for="edit_runs_against" class="label"><span class="label-text font-semibold">Runs Against</span></label>
+				<label for="edit_runs_against" class="label"><span class="label-text font-semibold">{$t('game_overview_runs_against')}</span></label>
 				{#if editing}
 					<input id="edit_runs_against" type="number" bind:value={game.result_runs_against} class="input input-bordered input-sm w-full" />
 				{:else}
@@ -128,10 +129,10 @@
 
 		<div class="flex gap-2 pt-4 border-t border-base-200 justify-end">
 			{#if editing}
-				<button onclick={saveGame} class="btn btn-success btn-sm">Save</button>
-				<button onclick={() => { editing = false; fetchGame(); }} class="btn btn-neutral btn-sm">Cancel</button>
+				<button onclick={saveGame} class="btn btn-success btn-sm">{$t('common_save')}</button>
+				<button onclick={() => { editing = false; fetchGame(); }} class="btn btn-neutral btn-sm">{$t('common_cancel')}</button>
 			{:else}
-				<button onclick={() => editing = true} class="btn btn-primary btn-sm px-6">Edit</button>
+				<button onclick={() => editing = true} class="btn btn-primary btn-sm px-6">{$t('common_edit')}</button>
 			{/if}
 		</div>
 	</div>

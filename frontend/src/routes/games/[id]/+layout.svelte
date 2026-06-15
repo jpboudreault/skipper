@@ -2,6 +2,7 @@
 	import { page } from '$app/stores';
 	import { onMount } from 'svelte';
 	import { apiFetch } from '$lib/api';
+	import { t } from '$lib/i18n';
 
 	let { children } = $props();
 	let game: any = $state(null);
@@ -17,28 +18,28 @@
 	});
 
 	const tabs = [
-		{ name: 'Overview', path: '' },
-		{ name: 'Availability', path: '/availability' },
-		{ name: 'Lineup', path: '/lineup' },
-		{ name: 'Batting Scorecard', path: '/batting' },
-		{ name: 'Pitching Scorecard', path: '/pitching' }
+		{ key: 'game_tabs_overview', path: '' },
+		{ key: 'game_tabs_availability', path: '/availability' },
+		{ key: 'game_tabs_lineup', path: '/lineup' },
+		{ key: 'game_tabs_batting_scorecard', path: '/batting' },
+		{ key: 'game_tabs_pitching_scorecard', path: '/pitching' }
 	];
 </script>
 
 <div class="mx-auto max-w-7xl px-4 py-8 sm:px-6 lg:px-8 print:p-0 print:max-w-none print:m-0">
 	<div class="mb-6 print:hidden">
-		<a href="/games" class="btn btn-ghost btn-xs text-base-content/60 mb-2">← Back to Games</a>
+		<a href="/games" class="btn btn-ghost btn-xs text-base-content/60 mb-2">{$t('game_tabs_back_to_games')}</a>
 		{#if game}
 			<h1 class="text-xl sm:text-3xl font-extrabold text-base-content flex flex-wrap items-center gap-x-2 gap-y-1">
 				{#if game.game_number}
-					<span class="text-primary whitespace-nowrap">Game #{game.game_number}</span>
+					<span class="text-primary whitespace-nowrap">{$t('game_tabs_game_number', { number: game.game_number })}</span>
 					<span class="text-base-content/30 hidden sm:inline">|</span>
 				{/if}
 				<span class="whitespace-nowrap">{game.date}</span>
-				<span class="text-base-content/50 text-base sm:text-xl font-normal whitespace-nowrap">{game.home_away === 'A' ? 'at' : 'vs'}</span>
-				<span class="text-base-content">{game.opponent || 'TBD'}</span>
+				<span class="text-base-content/50 text-base sm:text-xl font-normal whitespace-nowrap">{game.home_away === 'A' ? $t('game_tabs_at') : $t('dashboard_vs')}</span>
+				<span class="text-base-content">{game.opponent || $t('dashboard_tbd')}</span>
 				<span class="badge badge-sm sm:badge-md {game.result_runs_for != null ? 'badge-success' : 'badge-ghost'}">
-					{game.result_runs_for != null ? 'Complete' : 'Scheduled'}
+					{game.result_runs_for != null ? $t('common_complete') : $t('common_scheduled')}
 				</span>
 			</h1>
 		{/if}
@@ -53,7 +54,7 @@
 				{href}
 				class="tab tab-bordered {isActive ? 'tab-active font-bold text-primary' : 'text-base-content/60'}"
 			>
-				{tab.name}
+				{$t(tab.key)}
 			</a>
 		{/each}
 	</div>

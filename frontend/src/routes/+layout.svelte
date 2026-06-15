@@ -3,15 +3,19 @@
 	import { page } from '$app/stores';
 	import { onMount } from 'svelte';
 	import { apiFetch } from '$lib/api';
+	import { initLocale, isMultilingual, setLocale, locale, t, translate, type Locale } from '$lib/i18n';
 	
-	let { children } = $props();
+	let { data, children } = $props();
 	
 	let teams = $state<any[]>([]);
 	let activeTeamId = $state<string>('');
-	let teamName = $state('Loading...');
+	let teamName = $state('');
 	let mobileMenuOpen = $state(false);
-	
+
 	onMount(async () => {
+		initLocale(data.lockedLocale);
+		teamName = translate('nav_loading');
+
 		if ($page.url.pathname === '/login') return;
 
 		try {
@@ -35,14 +39,14 @@
 					teamName = currentTeam.name;
 					sessionStorage.setItem('teamName', teamName);
 				} else {
-					teamName = 'No Team';
+					teamName = translate('nav_no_team');
 				}
 			} else if (res.status === 401) {
 				window.location.href = '/login';
 			}
 		} catch (e) {
 			console.error("Failed to fetch teams", e);
-			teamName = 'Error Loading Team';
+			teamName = translate('nav_error_loading_team');
 		}
 	});
 
@@ -61,13 +65,19 @@
 		mobileMenuOpen = false;
 	}
 
-	const navLinks = [
-		{ href: '/', label: 'Dashboard', match: (p: string) => p === '/' },
-		{ href: '/roster', label: 'Roster', match: (p: string) => p.startsWith('/roster') },
-		{ href: '/matrix', label: 'Position Ratings', match: (p: string) => p.startsWith('/matrix') },
-		{ href: '/games', label: 'Games', match: (p: string) => p.startsWith('/games') },
-		{ href: '/stats', label: 'Stats', match: (p: string) => p.startsWith('/stats') },
-	];
+	function switchLocale(newLocale: Locale) {
+		if ($locale === newLocale) return;
+		setLocale(newLocale);
+		window.location.reload();
+	}
+
+	const navLinks = $derived([
+		{ href: '/', label: $t('nav_dashboard'), match: (p: string) => p === '/' },
+		{ href: '/roster', label: $t('nav_roster'), match: (p: string) => p.startsWith('/roster') },
+		{ href: '/matrix', label: $t('nav_position_ratings'), match: (p: string) => p.startsWith('/matrix') },
+		{ href: '/games', label: $t('nav_games'), match: (p: string) => p.startsWith('/games') },
+		{ href: '/stats', label: $t('nav_stats'), match: (p: string) => p.startsWith('/stats') },
+	]);
 </script>
 
 {#if $page.url.pathname !== '/login'}
@@ -93,19 +103,45 @@
 		</div>
 
 		<!-- Desktop nav links (hidden on mobile) -->
-		<div class="flex-none gap-1 sm:gap-2 hidden md:flex">
+		<div class="flex-none gap-1 sm:gap-2 hidden md:flex items-center">
+			{#if isMultilingual()}
+				<div class="join border border-base-300 mr-1">
+					<button
+						class="join-item btn btn-xs {$locale === 'en' ? 'btn-primary' : 'btn-ghost'}"
+						onclick={() => switchLocale('en')}
+						aria-label={$t('nav_language_en')}
+					>EN</button>
+					<button
+						class="join-item btn btn-xs {$locale === 'fr' ? 'btn-primary' : 'btn-ghost'}"
+						onclick={() => switchLocale('fr')}
+						aria-label={$t('nav_language_fr')}
+					>FR</button>
+				</div>
+			{/if}
 			{#each navLinks as link}
 				<a href={link.href} class="btn btn-ghost btn-sm {link.match($page.url.pathname) ? 'btn-active' : ''}">{link.label}</a>
 			{/each}
-			<a href="/auth/logout" class="btn btn-outline btn-error btn-sm ml-2">Logout</a>
+			<a href="/auth/logout" class="btn btn-outline btn-error btn-sm ml-2">{$t('nav_logout')}</a>
 		</div>
 
 		<!-- Mobile hamburger button (shown on mobile only) -->
-		<div class="flex-none md:hidden">
+		<div class="flex-none md:hidden flex items-center gap-2">
+			{#if isMultilingual()}
+				<div class="join border border-base-300">
+					<button
+						class="join-item btn btn-xs {$locale === 'en' ? 'btn-primary' : 'btn-ghost'}"
+						onclick={() => switchLocale('en')}
+					>EN</button>
+					<button
+						class="join-item btn btn-xs {$locale === 'fr' ? 'btn-primary' : 'btn-ghost'}"
+						onclick={() => switchLocale('fr')}
+					>FR</button>
+				</div>
+			{/if}
 			<button
 				class="btn btn-ghost btn-square btn-sm"
 				onclick={() => mobileMenuOpen = !mobileMenuOpen}
-				aria-label="Toggle menu"
+				aria-label={$t('nav_toggle_menu')}
 			>
 				{#if mobileMenuOpen}
 					<svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" class="w-6 h-6">
@@ -137,7 +173,7 @@
 					</a>
 				{/each}
 				<div class="divider my-1"></div>
-				<a href="/auth/logout" class="btn btn-outline btn-error btn-sm justify-start" onclick={closeMobileMenu}>Logout</a>
+				<a href="/auth/logout" class="btn btn-outline btn-error btn-sm justify-start" onclick={closeMobileMenu}>{$t('nav_logout')}</a>
 			</div>
 		</div>
 	{/if}

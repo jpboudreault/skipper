@@ -2,7 +2,8 @@
 	import { page } from '$app/stores';
 	import { onMount } from 'svelte';
 	import { apiFetch } from '$lib/api';
-import { beforeNavigate } from '$app/navigation';
+	import { beforeNavigate } from '$app/navigation';
+	import { t, translate } from '$lib/i18n';
 
 	let players: any[] = $state([]);
 	let appearances: any[] = $state([]);
@@ -52,7 +53,7 @@ let isDirty = $state(false);
 	onMount(fetchData);
 
 beforeNavigate((event) => {
-    if (isDirty && !confirm('You have unsaved changes. Leave without saving?')) {
+    if (isDirty && !confirm(translate('common_confirm_unsaved'))) {
         event.cancel();
     }
 });
@@ -118,7 +119,7 @@ beforeNavigate((event) => {
 				})))
 			});
 			if (res.ok) setTimeout(() => { saving = false; isDirty = false; }, 500);
-			else { saving = false; alert("Failed to save"); }
+			else { saving = false; alert(translate('pitching_failed_save')); }
 		} catch (e) {
 			saving = false;
 			console.error(e);
@@ -129,17 +130,17 @@ beforeNavigate((event) => {
 <div class="card bg-base-100 border border-base-300 shadow-xl overflow-hidden">
 	<div class="px-6 py-4 border-b border-base-200 flex items-center justify-between bg-base-200/40">
 		<div>
-			<h2 class="text-xl font-bold text-base-content">Pitching Appearances</h2>
-			<p class="text-sm text-base-content/70 mt-1">Enter each pitching appearance for the game.</p>
+			<h2 class="text-xl font-bold text-base-content">{$t('pitching_title')}</h2>
+			<p class="text-sm text-base-content/70 mt-1">{$t('pitching_description')}</p>
 		</div>
 		<div class="flex gap-2">
-			<button onclick={() => addRow()} class="btn btn-neutral btn-sm">+ Add Row</button>
+			<button onclick={() => addRow()} class="btn btn-neutral btn-sm">{$t('pitching_add_row')}</button>
 			<button onclick={saveAll} disabled={saving} class="btn btn-success btn-sm shadow-md">
 				{#if saving}
 					<span class="loading loading-spinner loading-xs"></span>
-					Saving...
+					{$t('common_saving')}
 				{:else}
-					Save All
+					{$t('batting_save_all')}
 				{/if}
 			</button>
 		</div>
@@ -148,22 +149,22 @@ beforeNavigate((event) => {
 	{#if loading}
 		<div class="p-16 text-center">
 			<span class="loading loading-spinner loading-lg text-primary"></span>
-			<p class="mt-2 text-sm text-base-content/60">Loading pitching scorecard...</p>
+			<p class="mt-2 text-sm text-base-content/60">{$t('pitching_loading')}</p>
 		</div>
 	{:else}
 		<div class="overflow-x-auto">
 			<table class="table w-full">
 				<thead class="bg-base-200">
 					<tr>
-						<th class="text-base-content font-bold w-40">Pitcher</th>
-						<th class="text-base-content font-bold text-center w-16">From Inning</th>
-						<th class="text-base-content font-bold text-center w-16">To Inning</th>
-						<th class="text-base-content font-bold text-center w-16">IP (outs)</th>
+						<th class="text-base-content font-bold w-40">{$t('pitching_pitcher')}</th>
+						<th class="text-base-content font-bold text-center w-16">{$t('pitching_from_inning')}</th>
+						<th class="text-base-content font-bold text-center w-16">{$t('pitching_to_inning')}</th>
+						<th class="text-base-content font-bold text-center w-16">{$t('pitching_ip_outs')}</th>
 						<th class="text-base-content font-bold text-center w-14">R</th>
 						<th class="text-base-content font-bold text-center w-14">K</th>
 						<th class="text-base-content font-bold text-center w-14">BB</th>
 						<th class="text-base-content font-bold text-center w-14">HBP</th>
-						<th class="text-base-content font-bold text-center w-16">Pitches</th>
+						<th class="text-base-content font-bold text-center w-16">{$t('pitching_pitches')}</th>
 						<th class="text-base-content font-bold text-center w-12"></th>
 					</tr>
 				</thead>

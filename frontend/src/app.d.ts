@@ -6,7 +6,9 @@ declare global {
 		interface Locals {
 			user: any | null;
 		}
-		// interface PageData {}
+		interface PageData {
+			lockedLocale?: 'en' | 'fr' | null;
+		}
 		// interface PageState {}
 		// interface Platform {}
 	}

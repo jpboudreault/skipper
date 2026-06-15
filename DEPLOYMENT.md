@@ -63,6 +63,16 @@ Optional — scoresheet photo ingestion:
 fly secrets set ANTHROPIC_API_KEY="your_key" --app your-unique-app-name
 ```
 
+Optional — single-language deployment (hide the EN/FR picker and lock UI + API errors):
+```bash
+# French-only example
+fly secrets set SKIPPER_LOCALE="fr" --app your-unique-app-name
+
+# Or set in fly.toml [env] instead of secrets (en or fr)
+```
+
+When `SKIPPER_LOCALE` is unset, the app stays bilingual with browser default + language picker (default).
+
 ## Step 6: Back up before you deploy
 
 Production data lives on the Fly volume (`/data/database.db`), not in the container image. A normal deploy keeps that data, but you should still back up before risky changes.

@@ -104,6 +104,7 @@ Edit `backend/.env`:
 - Set `GOOGLE_CLIENT_ID` from the [Google Cloud Console](https://console.cloud.google.com)
 - Add `http://localhost:5173` to **Authorized JavaScript Origins** for your OAuth client
 - Keep `DEV_MODE=true` for local development (auto-provisions users on first login)
+- Optional: set `SKIPPER_LOCALE=en` or `SKIPPER_LOCALE=fr` to lock the app to one language (also set the same variable when running the frontend dev server, or add it to `frontend/.env`)
 
 Edit `backend/app/tenants.json` with your team names, league format versions, pitch-count rules, and admin email addresses.
 

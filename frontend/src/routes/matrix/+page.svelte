@@ -1,6 +1,7 @@
 <script lang="ts">
 	import { onMount } from 'svelte';
 	import { apiFetch } from '$lib/api';
+	import { t, translate } from '$lib/i18n';
 
 	let players: any[] = $state([]);
 	let scores: any[] = $state([]);
@@ -82,14 +83,14 @@
 			});
 			if (!res.ok) {
 				if (res.status === 401) {
-					alert('Session expired. Please log in again.');
+					alert(translate('common_session_expired'));
 					window.location.href = '/login';
 				}
 				throw new Error('Failed to save');
 			}
 		} catch (e) {
 			console.error(e);
-			alert('Failed to save score');
+			alert(translate('common_failed_to_save'));
 		}
 	}
 </script>
@@ -97,9 +98,9 @@
 <div class="mx-auto max-w-[1400px] px-4 py-8 sm:px-6 lg:px-8">
 	<div class="sm:flex sm:items-center mb-6">
 		<div class="sm:flex-auto">
-			<h1 class="text-3xl font-bold text-base-content">Position Ratings</h1>
+			<h1 class="text-3xl font-bold text-base-content">{$t('matrix_title')}</h1>
 			<p class="mt-2 text-sm text-base-content/70">
-				Rate players from 0-10 at each position. Check the box to mark a position as forbidden.
+				{$t('matrix_description')}
 			</p>
 		</div>
 	</div>
@@ -108,7 +109,7 @@
 		{#if loading}
 			<div class="p-16 text-center">
 				<span class="loading loading-spinner loading-lg text-primary"></span>
-				<p class="mt-2 text-sm text-base-content/60">Loading matrix...</p>
+				<p class="mt-2 text-sm text-base-content/60">{$t('matrix_loading_matrix')}</p>
 			</div>
 		{:else}
 			<div class="overflow-x-auto">
@@ -116,7 +117,7 @@
 					<thead>
 						<tr>
 							<th class="bg-base-300 text-base-content font-bold w-48 sticky left-0 z-20">
-								Player
+								{$t('common_player')}
 							</th>
 							{#each POSITIONS as pos}
 								<th class="bg-base-200 text-base-content font-bold text-center w-24">
@@ -163,7 +164,7 @@
 														e.currentTarget.checked
 													)}
 												class="checkbox checkbox-error checkbox-xs"
-												title="Forbidden"
+												title={$t('matrix_forbidden')}
 											/>
 										</div>
 									</td>

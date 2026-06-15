@@ -1,6 +1,7 @@
 <script lang="ts">
 	import { onMount } from 'svelte';
 	import { goto } from '$app/navigation';
+	import { t, translate } from '$lib/i18n';
 
 	const API_URL = typeof window !== 'undefined' && window.location.hostname !== 'localhost' && window.location.hostname !== '127.0.0.1'
 		? ''
@@ -91,7 +92,7 @@
 				}, 1500);
 			} else {
 				const errData = await res.json();
-				throw new Error(errData.detail || 'Failed to authenticate with Google');
+				throw new Error(errData.detail || translate('common_failed_to_load'));
 			}
 		} catch (e: any) {
 			console.error("Login verification error:", e);
@@ -107,22 +108,22 @@
 			<h2 class="text-4xl font-black text-primary tracking-wider uppercase flex items-center justify-center gap-2">
 				⚾ Skipper
 			</h2>
-			<p class="mt-2 text-sm text-base-content/60">Sign in to manage your team schedule & roster</p>
+			<p class="mt-2 text-sm text-base-content/60">{$t('login_subtitle')}</p>
 		</div>
 
-		<div class="divider">Authentication</div>
+		<div class="divider">{$t('login_authentication')}</div>
 
 		<div class="space-y-4">
 			{#if status === 'loading'}
 				<div class="flex flex-col items-center justify-center py-6 space-y-2">
 					<span class="loading loading-spinner loading-lg text-primary"></span>
-					<p class="text-sm font-medium text-base-content/70">Verifying with Google...</p>
+					<p class="text-sm font-medium text-base-content/70">{$t('login_verifying')}</p>
 				</div>
 			{:else if status === 'success'}
 				<div class="flex flex-col items-center justify-center py-6 space-y-2 text-center">
 					<span class="text-5xl animate-bounce">🎉</span>
-					<p class="text-md font-bold text-success mt-2">Login Successful!</p>
-					<p class="text-xs text-base-content/60">Redirecting to your dashboard...</p>
+					<p class="text-md font-bold text-success mt-2">{$t('login_login_successful')}</p>
+					<p class="text-xs text-base-content/60">{$t('login_redirecting')}</p>
 				</div>
 			{:else}
 				{#if status === 'error'}
@@ -136,10 +137,10 @@
 					<div class="alert alert-warning text-sm py-3 shadow-sm rounded-lg flex flex-col items-start gap-2">
 						<div class="flex items-center gap-2 font-bold text-warning-content">
 							<svg xmlns="http://www.w3.org/2000/svg" class="stroke-current shrink-0 h-6 w-6" fill="none" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" /></svg>
-							<span>Configuration Missing</span>
+							<span>{$t('login_config_missing')}</span>
 						</div>
 						<p class="text-xs opacity-90 leading-relaxed">
-							Google Sign-In is not configured yet. Please configure the <strong>GOOGLE_CLIENT_ID</strong> environment variable on your server (Fly.io / local .env) to enable login.
+							{$t('login_config_missing_detail')}
 						</p>
 					</div>
 				{:else}

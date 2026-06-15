@@ -8,13 +8,14 @@ from pydantic import BaseModel
 import os
 from dotenv import load_dotenv
 from app.auth import verify_google_token, create_access_token, get_current_user, get_active_team
+from app.i18n.errors import raise_api_error
 from datetime import datetime, timedelta
 
 import json
 import traceback
 import sys
 from fastapi.responses import JSONResponse
-from fastapi.exception_handlers import http_exception_handler as default_http_exception_handler
+from app.i18n import parse_locale, localize_detail, translate
 
 def seed_tenants_and_admins():
     config_path = os.path.join(os.path.dirname(__file__), "tenants.json")
@@ -119,9 +120,10 @@ async def unhandled_exception_handler(request: Request, exc: Exception):
     print("="*80)
     traceback.print_exception(type(exc), exc, exc.__traceback__, file=sys.stderr)
     print("="*80 + "\n")
+    locale = parse_locale(request.headers.get("accept-language"))
     return JSONResponse(
         status_code=500,
-        content={"detail": "Internal Server Error"}
+        content={"detail": translate("internal_server_error", locale=locale)}
     )
 
 @app.exception_handler(HTTPException)
@@ -133,7 +135,9 @@ async def custom_http_exception_handler(request: Request, exc: HTTPException):
         print(f"Method: {request.method}")
         print(f"Detail: {exc.detail}")
         print("="*80 + "\n")
-    return await default_http_exception_handler(request, exc)
+    locale = parse_locale(request.headers.get("accept-language"))
+    detail = localize_detail(exc.detail, locale)
+    return JSONResponse(status_code=exc.status_code, content={"detail": detail})
 
 def run_migrations():
     """Safely apply schema migrations that create_all won't handle (adding columns to existing tables)."""
@@ -239,7 +243,7 @@ def read_players(session: Session = Depends(get_session), active_team: Team = De
 def update_player(player_id: int, player_update: PlayerUpdate, session: Session = Depends(get_session), active_team: Team = Depends(get_active_team)):
     db_player = session.exec(select(Player).where(Player.id == player_id, Player.team_id == active_team.id)).first()
     if not db_player:
-        raise HTTPException(status_code=404, detail="Player not found on this team")
+        raise_api_error(404, "player_not_found", player_id=player_id)
     
     player_data = player_update.model_dump(exclude_unset=True)
     for key, value in player_data.items():
@@ -254,7 +258,7 @@ def update_player(player_id: int, player_update: PlayerUpdate, session: Session 
 def delete_player(player_id: int, session: Session = Depends(get_session), active_team: Team = Depends(get_active_team)):
     db_player = session.exec(select(Player).where(Player.id == player_id, Player.team_id == active_team.id)).first()
     if not db_player:
-        raise HTTPException(status_code=404, detail="Player not found on this team")
+        raise_api_error(404, "player_not_found", player_id=player_id)
         
     session.delete(db_player)
     session.commit()
@@ -275,7 +279,7 @@ def read_position_scores(session: Session = Depends(get_session), active_team: T
 def update_position_score(player_id: int, position: int, score_update: PositionScoreUpdate, session: Session = Depends(get_session), active_team: Team = Depends(get_active_team)):
     player = session.exec(select(Player).where(Player.id == player_id, Player.team_id == active_team.id)).first()
     if not player:
-        raise HTTPException(status_code=404, detail="Player not found on this team")
+        raise_api_error(404, "player_not_found", player_id=player_id)
 
     db_score = session.exec(select(PositionScore).where(PositionScore.player_id == player_id, PositionScore.position == position)).first()
     if not db_score:
@@ -298,7 +302,7 @@ def google_login(request: GoogleLoginRequest, session: Session = Depends(get_ses
     idinfo = verify_google_token(request.credential)
     email = idinfo.get("email")
     if not email:
-        raise HTTPException(status_code=400, detail="Invalid Google token payload: email missing")
+        raise_api_error(400, "google_email_missing")
         
     email_lower = email.strip().lower()
     user = session.exec(select(User).where(User.email == email_lower)).first()
@@ -322,10 +326,7 @@ def google_login(request: GoogleLoginRequest, session: Session = Depends(get_ses
             session.refresh(user)
         else:
             print(f"DEBUG LOGIN: Google email '{email_lower}' not found in database.")
-            raise HTTPException(
-                status_code=status.HTTP_401_UNAUTHORIZED,
-                detail="Your email is not authorized to access this app."
-            )
+            raise_api_error(401, "email_not_authorized")
             
     # Valid user, generate JWT
     access_token = create_access_token(data={"sub": user.email, "user_id": user.id})

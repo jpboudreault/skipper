@@ -2,7 +2,8 @@
 	import { page } from '$app/stores';
 	import { onMount } from 'svelte';
 	import { apiFetch } from '$lib/api';
-import { beforeNavigate } from '$app/navigation';
+	import { beforeNavigate } from '$app/navigation';
+	import { t, translate } from '$lib/i18n';
 
 	let players: any[] = $state([]);
 	let battingData: Record<number, any> = $state({});
@@ -115,7 +116,7 @@ let isDirty = $state(false);
 	onMount(fetchData);
 
 beforeNavigate((event) => {
-    if (isDirty && !confirm('You have unsaved changes. Leave without saving?')) {
+    if (isDirty && !confirm(translate('batting_unsaved_confirm'))) {
         event.cancel();
     }
 });
@@ -152,12 +153,12 @@ beforeNavigate((event) => {
 				setTimeout(() => { saving = false; isDirty = false; }, 500);
 			} else {
 				saving = false;
-				alert('Failed to save');
+				alert(translate('batting_failed_save'));
 			}
 		} catch (e) {
 			saving = false;
 			console.error(e);
-			alert('Error saving batting data');
+			alert(translate('batting_error_saving'));
 		}
 	}
 
@@ -242,17 +243,17 @@ beforeNavigate((event) => {
 <div class="card bg-base-100 border-base-300 overflow-hidden border shadow-xl">
 	<div class="border-base-200 bg-base-200/40 flex items-center justify-between border-b px-6 py-4">
 		<div>
-			<h2 class="text-base-content text-xl font-bold">Batting Stats</h2>
+			<h2 class="text-base-content text-xl font-bold">{$t('batting_title')}</h2>
 			<p class="text-base-content/70 mt-1 text-sm">
-				Enter game batting stats for each player. Click Save when done.
+				{$t('batting_description')}
 			</p>
 		</div>
 		<button onclick={saveAll} disabled={saving} class="btn btn-success btn-sm shadow-md">
 			{#if saving}
 				<span class="loading loading-spinner loading-xs"></span>
-				Saving...
+				{$t('common_saving')}
 			{:else}
-				Save All
+				{$t('batting_save_all')}
 			{/if}
 		</button>
 	</div>
@@ -267,8 +268,8 @@ beforeNavigate((event) => {
 			>
 				<span class="loading loading-spinner loading-md text-primary"></span>
 				<div>
-					<p class="text-base-content font-semibold">Parsing scoresheet with AI...</p>
-					<p class="text-base-content/60 text-sm">This can take up to 1 minute.</p>
+					<p class="text-base-content font-semibold">{$t('batting_parsing_ai')}</p>
+					<p class="text-base-content/60 text-sm">{$t('batting_parsing_wait')}</p>
 				</div>
 			</div>
 		{:else}
@@ -315,9 +316,9 @@ beforeNavigate((event) => {
 						d="M15 13a3 3 0 11-6 0 3 3 0 016 0z"
 					></path>
 				</svg>
-				<p class="text-base-content font-semibold">Upload Scoresheet Photo</p>
+				<p class="text-base-content font-semibold">{$t('batting_upload_photo')}</p>
 				<p class="text-base-content/50 mt-1 text-xs">
-					Drag & drop or click to browse · JPEG, PNG, WebP
+					{$t('batting_upload_hint')}
 				</p>
 			</div>
 		{/if}
@@ -337,9 +338,7 @@ beforeNavigate((event) => {
 						d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"
 					/></svg
 				>
-				<span
-					>Scoresheet parsed! Review the values below and click <strong>Save All</strong> when ready.</span
-				>
+				<span>{$t('batting_parsed_success')}</span>
 			</div>
 		{/if}
 
@@ -368,7 +367,7 @@ beforeNavigate((event) => {
 	{#if loading}
 		<div class="p-16 text-center">
 			<span class="loading loading-spinner loading-lg text-primary"></span>
-			<p class="text-base-content/60 mt-2 text-sm">Loading batting scorecard...</p>
+			<p class="text-base-content/60 mt-2 text-sm">{$t('batting_loading')}</p>
 		</div>
 	{:else}
 		<div class="overflow-x-auto">
@@ -377,7 +376,7 @@ beforeNavigate((event) => {
 					<tr>
 						<th class="bg-base-300 text-base-content sticky left-0 z-20 w-12 font-bold">#</th>
 						<th class="bg-base-300 text-base-content sticky left-12 z-20 min-w-[140px] font-bold"
-							>Player</th
+							>{$t('batting_player_col')}</th
 						>
 						{#each statColumns as col}
 							<th class="bg-base-200 text-base-content w-12 text-center font-bold">{col.label}</th>

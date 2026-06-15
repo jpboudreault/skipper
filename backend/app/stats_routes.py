@@ -1,10 +1,11 @@
-from fastapi import APIRouter, Depends, HTTPException
+from fastapi import APIRouter, Depends
 from sqlmodel import Session
 from app.db import get_session
 from app.stats import get_season_batting, get_season_pitching, get_season_position, get_pitching_plan
 from typing import List, Dict, Any
 from app.auth import get_current_user
 from app.models import User
+from app.i18n.errors import raise_api_error
 
 router = APIRouter(prefix="/teams/{team_id}/stats", tags=["stats"])
 
@@ -12,28 +13,28 @@ router = APIRouter(prefix="/teams/{team_id}/stats", tags=["stats"])
 def season_batting(team_id: int, session: Session = Depends(get_session), current_user: User = Depends(get_current_user)) -> List[Dict[str, Any]]:
     current_user = session.get(User, current_user.id)
     if team_id not in {t.id for t in current_user.teams}:
-        raise HTTPException(status_code=403, detail="Not authorized for this team")
+        raise_api_error(403, "not_authorized_for_team")
     return get_season_batting(team_id, session)
 
 @router.get("/pitching")
 def season_pitching(team_id: int, session: Session = Depends(get_session), current_user: User = Depends(get_current_user)) -> List[Dict[str, Any]]:
     current_user = session.get(User, current_user.id)
     if team_id not in {t.id for t in current_user.teams}:
-        raise HTTPException(status_code=403, detail="Not authorized for this team")
+        raise_api_error(403, "not_authorized_for_team")
     return get_season_pitching(team_id, session)
 
 @router.get("/position")
 def season_position(team_id: int, session: Session = Depends(get_session), current_user: User = Depends(get_current_user)) -> List[Dict[str, Any]]:
     current_user = session.get(User, current_user.id)
     if team_id not in {t.id for t in current_user.teams}:
-        raise HTTPException(status_code=403, detail="Not authorized for this team")
+        raise_api_error(403, "not_authorized_for_team")
     return get_season_position(team_id, session)
 
 @router.get("/pitching-plan")
 def pitching_plan(team_id: int, session: Session = Depends(get_session), current_user: User = Depends(get_current_user)) -> Dict[str, Any]:
     current_user = session.get(User, current_user.id)
     if team_id not in {t.id for t in current_user.teams}:
-        raise HTTPException(status_code=403, detail="Not authorized for this team")
+        raise_api_error(403, "not_authorized_for_team")
     return get_pitching_plan(team_id, session)
 
 from datetime import date
@@ -44,7 +45,7 @@ from app.models import Game, Team
 def team_dashboard(team_id: int, session: Session = Depends(get_session), current_user: User = Depends(get_current_user)) -> Dict[str, Any]:
     current_user = session.get(User, current_user.id)
     if team_id not in {t.id for t in current_user.teams}:
-        raise HTTPException(status_code=403, detail="Not authorized for this team")
+        raise_api_error(403, "not_authorized_for_team")
 
     team = session.get(Team, team_id)
     team_name = team.name if team else "Home Team"
@@ -94,5 +95,3 @@ def team_dashboard(team_id: int, session: Session = Depends(get_session), curren
         "recent_batting": recent_batting,
         "recent_pitching": recent_pitching
     }
-
-

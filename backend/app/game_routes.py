@@ -1,5 +1,6 @@
-from fastapi import APIRouter, Depends, HTTPException, UploadFile, File
+from fastapi import APIRouter, Depends, UploadFile, File
 from app.auth import get_current_user, get_active_team
+from app.i18n.errors import raise_api_error
 from sqlmodel import Session, select
 from app.models import (
     Game, GameCreate, Availability, BattingLine, PitchingAppearance,
@@ -23,7 +24,7 @@ def get_active_game(
 ) -> Game:
     game = session.get(Game, game_id)
     if not game or game.team_id != active_team.id:
-        raise HTTPException(status_code=404, detail="Game not found on this team")
+        raise_api_error(404, "game_not_found")
     return game
 
 # --- Game CRUD ---
@@ -93,7 +94,7 @@ def set_availability(updates: List[AvailabilityUpdate], game: Game = Depends(get
     
     for upd in updates:
         if upd.player_id not in valid_player_ids:
-            raise HTTPException(status_code=400, detail=f"Player {upd.player_id} not found on this team")
+            raise_api_error(400, "player_not_found", player_id=upd.player_id)
             
         existing = session.exec(
             select(Availability).where(
@@ -166,7 +167,7 @@ def set_batting(lines: List[BattingLineUpdate], game: Game = Depends(get_active_
 
     for line in lines:
         if line.player_id not in valid_player_ids:
-            raise HTTPException(status_code=400, detail=f"Player {line.player_id} not found on this team")
+            raise_api_error(400, "player_not_found", player_id=line.player_id)
             
         existing = session.exec(
             select(BattingLine).where(
@@ -202,25 +203,19 @@ async def ingest_batting(
     """
     # Check API key availability
     if not os.environ.get("ANTHROPIC_API_KEY"):
-        raise HTTPException(
-            status_code=503,
-            detail="Photo ingestion is not configured. Set the ANTHROPIC_API_KEY environment variable."
-        )
+        raise_api_error(503, "photo_ingestion_not_configured")
 
     # Validate file type
     content_type = file.content_type or ""
     if content_type not in ALLOWED_IMAGE_TYPES:
-        raise HTTPException(
-            status_code=400,
-            detail=f"Invalid file type '{content_type}'. Please upload a JPEG, PNG, or WebP image."
-        )
+        raise_api_error(400, "invalid_file_type", content_type=content_type)
 
     # Read file bytes
     image_bytes = await file.read()
     if len(image_bytes) == 0:
-        raise HTTPException(status_code=400, detail="Uploaded file is empty.")
+        raise_api_error(400, "file_empty")
     if len(image_bytes) > 20 * 1024 * 1024:  # 20 MB limit
-        raise HTTPException(status_code=400, detail="File too large. Maximum size is 20 MB.")
+        raise_api_error(400, "file_too_large")
 
     # Load active (non-coach) players for this team
     players = session.exec(
@@ -244,10 +239,10 @@ async def ingest_batting(
         )
     except ValueError as e:
         if "Unknown scoresheet version" in str(e):
-            raise HTTPException(status_code=400, detail=str(e))
-        raise HTTPException(status_code=503, detail=str(e))
+            raise_api_error(400, "unknown_scoresheet_version")
+        raise_api_error(503, "ai_service_unavailable", reason=str(e))
     except RuntimeError as e:
-        raise HTTPException(status_code=502, detail=f"AI parsing failed: {str(e)}")
+        raise_api_error(502, "ai_parsing_failed", reason=str(e))
 
     return {"parsed": parsed, "player_count": len(players)}
 
@@ -277,7 +272,7 @@ def set_pitching(appearances: List[PitchingAppearanceCreate], game: Game = Depen
 
     for app in appearances:
         if app.player_id not in valid_player_ids:
-            raise HTTPException(status_code=400, detail=f"Player {app.player_id} not found on this team")
+            raise_api_error(400, "player_not_found", player_id=app.player_id)
 
     # Delete existing appearances for this game and re-insert
     existing = session.exec(select(PitchingAppearance).where(PitchingAppearance.game_id == game.id)).all()
@@ -311,7 +306,7 @@ def set_lineup(cells: List[LineupCell], game: Game = Depends(get_active_game), s
 
     for cell in cells:
         if cell.player_id not in valid_player_ids:
-            raise HTTPException(status_code=400, detail=f"Player {cell.player_id} not found on this team")
+            raise_api_error(400, "player_not_found", player_id=cell.player_id)
 
     # Delete existing lineup for this game and re-insert
     existing = session.exec(select(Lineup).where(Lineup.game_id == game.id)).all()
@@ -335,7 +330,7 @@ def solve_game_lineup(game: Game = Depends(get_active_game), session: Session = 
     """
     team = session.get(Team, game.team_id)
     if not team:
-        raise HTTPException(status_code=404, detail="Team not found")
+        raise_api_error(404, "team_not_found")
 
     innings = game.innings_played or team.innings_per_game
 
@@ -348,7 +343,7 @@ def solve_game_lineup(game: Game = Depends(get_active_game), session: Session = 
     available_players = [p for p in all_players if p.id not in absent_ids]
 
     if len(available_players) < 9:
-        raise HTTPException(status_code=400, detail=f"Need at least 9 available players, only {len(available_players)} available")
+        raise_api_error(400, "insufficient_players", count=len(available_players))
 
     # Gather position scores
     all_scores = session.exec(select(PositionScore)).all()
@@ -404,18 +399,6 @@ def solve_game_lineup(game: Game = Depends(get_active_game), session: Session = 
     ]
 
     # Pre-solver validations for coach lock constraints
-    POSITIONS_MAP = {
-        0: "Bench (X)",
-        1: "Pitcher (P)",
-        2: "Catcher (C)",
-        3: "First Base (1B)",
-        4: "Second Base (2B)",
-        5: "Third Base (3B)",
-        6: "Shortstop (SS)",
-        7: "Left Field (LF)",
-        8: "Center Field (CF)",
-        9: "Right Field (RF)"
-    }
 
     # 1. H1 duplicate positions in the same inning
     pos_locks = {}
@@ -427,9 +410,12 @@ def solve_game_lineup(game: Game = Depends(get_active_game), session: Session = 
             
     for (inn, pos), p_names in pos_locks.items():
         if len(p_names) > 1:
-            raise HTTPException(
-                status_code=400,
-                detail=f"Inning {inn}: Multiple players locked to the same position ({POSITIONS_MAP.get(pos, str(pos))}): {', '.join(p_names)}."
+            raise_api_error(
+                400,
+                "duplicate_position_lock",
+                inning=inn,
+                position_id=pos,
+                players=", ".join(p_names),
             )
 
     # 2. H2 duplicate player assignments in the same inning
@@ -442,10 +428,12 @@ def solve_game_lineup(game: Game = Depends(get_active_game), session: Session = 
         if len(positions) > 1:
             p = next((p for p in available_players if p.id == p_id), None)
             p_name = f"{p.first_name} {p.last_name}" if p else f"Player #{p_id}"
-            pos_labels = [POSITIONS_MAP.get(pos, str(pos)) for pos in positions]
-            raise HTTPException(
-                status_code=400,
-                detail=f"Inning {inn}: {p_name} is locked to multiple positions ({', '.join(pos_labels)})."
+            raise_api_error(
+                400,
+                "multiple_positions_lock",
+                inning=inn,
+                player_name=p_name,
+                position_ids=positions,
             )
 
     # 3. H6 & H5 Pitcher Innings Cap & Re-entry checks
@@ -459,9 +447,12 @@ def solve_game_lineup(game: Game = Depends(get_active_game), session: Session = 
             
             # Game Cap
             if len(pitching_innings) > team.max_pitcher_innings_per_game:
-                raise HTTPException(
-                    status_code=400,
-                    detail=f"{p_name} is locked to pitch in {len(pitching_innings)} innings, which exceeds the game limit of {team.max_pitcher_innings_per_game} inning(s)."
+                raise_api_error(
+                    400,
+                    "pitcher_game_cap",
+                    player_name=p_name,
+                    count=len(pitching_innings),
+                    max=team.max_pitcher_innings_per_game,
                 )
                 
             # 7-day Cap
@@ -477,9 +468,13 @@ def solve_game_lineup(game: Game = Depends(get_active_game), session: Session = 
             if remaining_7_days < 0:
                 remaining_7_days = 0
             if len(pitching_innings) > remaining_7_days:
-                raise HTTPException(
-                    status_code=400,
-                    detail=f"{p_name} is locked to pitch in {len(pitching_innings)} innings, exceeding their remaining 7-day rolling limit of {remaining_7_days} (already pitched {eligibility.innings_last_7_days} innings in last 7 days)."
+                raise_api_error(
+                    400,
+                    "pitcher_7day_cap",
+                    player_name=p_name,
+                    count=len(pitching_innings),
+                    remaining=remaining_7_days,
+                    pitched=eligibility.innings_last_7_days,
                 )
 
             # Re-entry check
@@ -491,21 +486,36 @@ def solve_game_lineup(game: Game = Depends(get_active_game), session: Session = 
                 for inn in range(pitching_innings[0] + 1, pitching_innings[-1]):
                     between_cell = next((c for c in p_cells if c.inning == inn), None)
                     if between_cell and between_cell.locked and between_cell.position != 1:
-                        raise HTTPException(
-                            status_code=400,
-                            detail=f"Pitcher Re-entry violation: {p_name} is locked to pitch in Inning {pitching_innings[0]} and Inning {pitching_innings[-1]}, but is locked to {POSITIONS_MAP.get(between_cell.position, str(between_cell.position))} in Inning {inn}."
+                        raise_api_error(
+                            400,
+                            "pitcher_reentry_violation",
+                            player_name=p_name,
+                            first_inning=pitching_innings[0],
+                            last_inning=pitching_innings[-1],
+                            between_inning=inn,
+                            position_id=between_cell.position,
                         )
                 
                 # Check if the continuous block length exceeds caps
                 if min_required > team.max_pitcher_innings_per_game:
-                    raise HTTPException(
-                        status_code=400,
-                        detail=f"Pitcher Re-entry & Cap violation: {p_name} is locked to pitch in Inning {pitching_innings[0]} and Inning {pitching_innings[-1]}, which would force them to pitch for at least {min_required} consecutive innings, exceeding the game limit of {team.max_pitcher_innings_per_game} inning(s)."
+                    raise_api_error(
+                        400,
+                        "pitcher_reentry_game_cap",
+                        player_name=p_name,
+                        first_inning=pitching_innings[0],
+                        last_inning=pitching_innings[-1],
+                        min_required=min_required,
+                        max=team.max_pitcher_innings_per_game,
                     )
                 if min_required > remaining_7_days:
-                    raise HTTPException(
-                        status_code=400,
-                        detail=f"Pitcher Re-entry & Cap violation: {p_name} is locked to pitch in Inning {pitching_innings[0]} and Inning {pitching_innings[-1]}, forcing at least {min_required} consecutive innings, exceeding their remaining 7-day rolling limit of {remaining_7_days}."
+                    raise_api_error(
+                        400,
+                        "pitcher_reentry_7day_cap",
+                        player_name=p_name,
+                        first_inning=pitching_innings[0],
+                        last_inning=pitching_innings[-1],
+                        min_required=min_required,
+                        remaining=remaining_7_days,
                     )
 
     # 4. H8 Catcher -> Pitcher rest violation (Catcher in Inning i, Pitcher in Inning i+1)
@@ -516,9 +526,12 @@ def solve_game_lineup(game: Game = Depends(get_active_game), session: Session = 
             if c.position == 2:  # Catcher
                 next_lock = next((nl for nl in p_locks if nl.inning == c.inning + 1), None)
                 if next_lock and next_lock.position == 1:  # Pitcher next inning
-                    raise HTTPException(
-                        status_code=400,
-                        detail=f"Catcher-to-Pitcher Rest violation: {p_name} catches in Inning {c.inning} and is locked to pitch in Inning {c.inning + 1}."
+                    raise_api_error(
+                        400,
+                        "catcher_pitcher_rest",
+                        player_name=p_name,
+                        catcher_inning=c.inning,
+                        pitcher_inning=c.inning + 1,
                     )
 
     # 5. H9 Forbidden positions or substitutes pitching
@@ -530,10 +543,19 @@ def solve_game_lineup(game: Game = Depends(get_active_game), session: Session = 
         p_name = f"{p.first_name} {p.last_name}"
         for c in p_locks:
             if c.position in forbidden:
-                label = "Substitute players cannot pitch" if c.position == 1 and p.is_substitute else f"forbidden from playing {POSITIONS_MAP.get(c.position, str(c.position))}"
-                raise HTTPException(
-                    status_code=400,
-                    detail=f"Forbidden Position: {p_name} is {label}, but is locked to that position in Inning {c.inning}."
+                if c.position == 1 and p.is_substitute:
+                    raise_api_error(
+                        400,
+                        "forbidden_position_substitute_pitch",
+                        player_name=p_name,
+                        inning=c.inning,
+                    )
+                raise_api_error(
+                    400,
+                    "forbidden_position",
+                    player_name=p_name,
+                    position_id=c.position,
+                    inning=c.inning,
                 )
 
     config = OptimizerConfig(
@@ -547,7 +569,7 @@ def solve_game_lineup(game: Game = Depends(get_active_game), session: Session = 
     result = solve_lineup(player_infos, config, locked)
 
     if result.status == "infeasible":
-        raise HTTPException(status_code=400, detail="No feasible lineup found. Check constraints and availability.")
+        raise_api_error(400, "no_feasible_lineup")
 
     # Save the result to the lineup table (replace non-locked cells)
     # First remove non-locked cells
@@ -587,7 +609,7 @@ def get_pitcher_status(game: Game = Depends(get_active_game), session: Session =
     """
     team = session.get(Team, game.team_id)
     if not team:
-        raise HTTPException(status_code=404, detail="Team not found")
+        raise_api_error(404, "team_not_found")
 
     players = session.exec(select(Player).where(Player.team_id == game.team_id, Player.active == True, Player.is_coach == False)).all()
 

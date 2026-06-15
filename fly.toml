@@ -10,6 +10,7 @@ primary_region = "yyz" # yyz = Toronto (closest active region)
 [env]
   DATABASE_PATH = "/data/database.db"
   VITE_API_URL = "" # Ensures absolute relative path browser requests in production
+  # Optional: SKIPPER_LOCALE = "en" or "fr" to lock UI and API errors to one language
   NODE_ENV = "production"
   PORT = "8080"
   BODY_SIZE_LIMIT = "26214400" # 25 MB size limit for SvelteKit adapter-node uploads

@@ -10,7 +10,10 @@ export const POST: RequestHandler = async ({ request, cookies }) => {
 
 		const res = await fetch('http://127.0.0.1:8000/api/auth/google', {
 			method: 'POST',
-			headers: { 'Content-Type': 'application/json' },
+			headers: {
+				'Content-Type': 'application/json',
+				'Accept-Language': request.headers.get('accept-language') || 'en'
+			},
 			body: JSON.stringify({ credential })
 		});
 

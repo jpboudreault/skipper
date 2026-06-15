@@ -1,6 +1,7 @@
 <script lang="ts">
 	import { onMount } from 'svelte';
 	import { apiFetch } from '$lib/api';
+	import { t, translate } from '$lib/i18n';
 
 	let { data } = $props();
 	const token = $derived(data.user?.token);
@@ -38,11 +39,11 @@
 			} else {
 				const errText = await res.text();
 				console.error("Failed to load players, server says:", errText);
-				alert(`Failed to load players: ${errText}`);
+				alert(translate('roster_failed_load_players', { error: errText }));
 			}
 		} catch (e: any) {
 			console.error("Fetch error:", e);
-			alert(`Fetch error: ${e.message || String(e)}`);
+			alert(translate('roster_fetch_error', { error: e.message || String(e) }));
 		} finally {
 			loading = false;
 		}
@@ -70,7 +71,7 @@
 			});
 			if (!res.ok) {
 				if (res.status === 401) {
-					alert("Session expired. Please log in again.");
+					alert(translate('common_session_expired'));
 					window.location.href = '/login';
 				}
 				throw new Error("Update failed");
@@ -80,7 +81,7 @@
 			player[field] = originalValue;
 			players = [...players];
 			console.error(e);
-			alert("Failed to save change.");
+			alert(translate('roster_failed_save_change'));
 		}
 	}
 
@@ -105,7 +106,7 @@
 			if (!res.ok) throw new Error("Update failed");
 		} catch (e) {
 			console.error(e);
-			alert("Failed to save role.");
+			alert(translate('roster_failed_save_role'));
 			fetchPlayers();
 		}
 	}
@@ -137,12 +138,12 @@
 			}
 		} catch (e) {
 			console.error(e);
-			alert("Failed to add player.");
+			alert(translate('roster_failed_add_player'));
 		}
 	}
 	
 	async function deletePlayer(id: number) {
-		if (!confirm("Are you sure you want to remove this player?")) return;
+		if (!confirm(translate('roster_confirm_remove'))) return;
 		try {
 			const res = await apiFetch(`/players/${id}`, {
 				method: 'DELETE'
@@ -160,12 +161,12 @@
 	<div class="sm:flex sm:items-center mb-6">
 		<div class="sm:flex-auto">
 			<h1 class="text-3xl font-bold text-base-content">
-				{team ? `${team.name} ${team.season}` : 'Team Roster'}
+				{team ? `${team.name} ${team.season}` : $t('roster_team_roster')}
 			</h1>
 			<p class="mt-2 text-sm text-base-content/70">
-				{team 
-					? `Managing the roster for the ${team.season} season.` 
-					: 'A list of all the players on your team. Edit inline to automatically save.'}
+				{team
+					? $t('roster_managing_season', { season: team.season })
+					: $t('roster_managing_default')}
 			</p>
 		</div>
 	</div>
@@ -175,12 +176,12 @@
 			<table class="table w-full">
 				<thead class="bg-base-200">
 					<tr>
-						<th class="text-base-content font-bold w-24">Jersey</th>
-						<th class="text-base-content font-bold">First Name</th>
-						<th class="text-base-content font-bold">Last Name</th>
-						<th class="text-base-content font-bold w-40">Role</th>
-						<th class="text-base-content font-bold w-32">Active</th>
-						<th class="text-base-content font-bold w-24 text-right">Actions</th>
+						<th class="text-base-content font-bold w-24">{$t('roster_jersey')}</th>
+						<th class="text-base-content font-bold">{$t('roster_first_name')}</th>
+						<th class="text-base-content font-bold">{$t('roster_last_name')}</th>
+						<th class="text-base-content font-bold w-40">{$t('roster_role')}</th>
+						<th class="text-base-content font-bold w-32">{$t('roster_active')}</th>
+						<th class="text-base-content font-bold w-24 text-right">{$t('common_actions')}</th>
 					</tr>
 				</thead>
 				<tbody>
@@ -188,12 +189,12 @@
 						<tr>
 							<td colspan="5" class="text-center py-8">
 								<span class="loading loading-spinner loading-md text-primary"></span>
-								<p class="mt-2 text-sm text-base-content/60">Loading players...</p>
+								<p class="mt-2 text-sm text-base-content/60">{$t('roster_loading_players')}</p>
 							</td>
 						</tr>
 					{:else if players.length === 0}
 						<tr>
-							<td colspan="5" class="text-center py-8 text-base-content/60">No players found. Add one below!</td>
+							<td colspan="5" class="text-center py-8 text-base-content/60">{$t('roster_no_players')}</td>
 						</tr>
 					{/if}
 					
@@ -231,10 +232,10 @@
 									onchange={(e) => updateRole(player, e.currentTarget.value)}
 									class="select select-bordered select-sm w-full"
 								>
-									<option value="player">Player</option>
-									<option value="substitute">Substitute</option>
-									<option value="head_coach" disabled={hasHeadCoach && player.coach_type !== 'head'}>Head Coach</option>
-									<option value="assistant_coach">Assistant Coach</option>
+									<option value="player">{$t('roster_role_player')}</option>
+									<option value="substitute">{$t('roster_role_substitute')}</option>
+									<option value="head_coach" disabled={hasHeadCoach && player.coach_type !== 'head'}>{$t('roster_role_head_coach')}</option>
+									<option value="assistant_coach">{$t('roster_role_assistant_coach')}</option>
 								</select>
 							</td>
 							<td>
@@ -243,34 +244,34 @@
 									onchange={(e) => updatePlayer(player, 'active', e.currentTarget.value === 'true')}
 									class="select select-bordered select-sm w-full"
 								>
-									<option value="true">Yes</option>
-									<option value="false">No</option>
+									<option value="true">{$t('common_yes')}</option>
+									<option value="false">{$t('common_no')}</option>
 								</select>
 							</td>
 							<td class="text-right">
 								<button onclick={() => deletePlayer(player.id)} class="btn btn-ghost btn-error btn-xs">
-									Delete
+									{$t('common_delete')}
 								</button>
 							</td>
 						</tr>
 					{/snippet}
 
 					{#if rosterRegular.length > 0}
-						<tr class="bg-base-300/50"><td colspan="6" class="font-bold text-sm uppercase text-base-content/70 py-2 px-4">Players</td></tr>
+						<tr class="bg-base-300/50"><td colspan="6" class="font-bold text-sm uppercase text-base-content/70 py-2 px-4">{$t('roster_section_players')}</td></tr>
 						{#each rosterRegular as player}
 							{@render playerRow(player)}
 						{/each}
 					{/if}
 
 					{#if rosterCoaches.length > 0}
-						<tr class="bg-base-300/50"><td colspan="6" class="font-bold text-sm uppercase text-base-content/70 py-2 px-4">Coaches</td></tr>
+						<tr class="bg-base-300/50"><td colspan="6" class="font-bold text-sm uppercase text-base-content/70 py-2 px-4">{$t('roster_section_coaches')}</td></tr>
 						{#each rosterCoaches as player}
 							{@render playerRow(player)}
 						{/each}
 					{/if}
 
 					{#if rosterSubs.length > 0}
-						<tr class="bg-base-300/50"><td colspan="6" class="font-bold text-sm uppercase text-base-content/70 py-2 px-4">Substitutes</td></tr>
+						<tr class="bg-base-300/50"><td colspan="6" class="font-bold text-sm uppercase text-base-content/70 py-2 px-4">{$t('roster_section_substitutes')}</td></tr>
 						{#each rosterSubs as player}
 							{@render playerRow(player)}
 						{/each}
@@ -290,7 +291,7 @@
 							<input 
 								type="text" 
 								bind:value={newPlayer.first_name} 
-								placeholder="First Name"
+								placeholder={$t('roster_first_name')}
 								class="input input-bordered input-sm w-full"
 							/>
 						</td>
@@ -298,24 +299,24 @@
 							<input 
 								type="text" 
 								bind:value={newPlayer.last_name} 
-								placeholder="Last Name"
+								placeholder={$t('roster_last_name')}
 								class="input input-bordered input-sm w-full"
 							/>
 						</td>
 						<td>
 							<select bind:value={newPlayer.role} class="select select-bordered select-sm w-full">
-								<option value="player">Player</option>
-								<option value="substitute">Substitute</option>
-								<option value="head_coach" disabled={hasHeadCoach}>Head Coach</option>
-								<option value="assistant_coach">Assistant Coach</option>
+								<option value="player">{$t('roster_role_player')}</option>
+								<option value="substitute">{$t('roster_role_substitute')}</option>
+								<option value="head_coach" disabled={hasHeadCoach}>{$t('roster_role_head_coach')}</option>
+								<option value="assistant_coach">{$t('roster_role_assistant_coach')}</option>
 							</select>
 						</td>
 						<td>
-							<span class="badge badge-success ml-2 py-3 px-4 font-bold">Yes</span>
+							<span class="badge badge-success ml-2 py-3 px-4 font-bold">{$t('common_yes')}</span>
 						</td>
 						<td class="text-right">
 							<button onclick={addPlayer} class="btn btn-primary btn-sm">
-								Add Player
+								{$t('roster_add_player')}
 							</button>
 						</td>
 					</tr>

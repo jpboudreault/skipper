@@ -10,6 +10,7 @@ from app.models import User, Team
 from typing import Optional
 from google.oauth2 import id_token
 from google.auth.transport import requests
+from app.i18n.errors import raise_api_error
 
 load_dotenv()
 
@@ -23,10 +24,7 @@ def verify_google_token(token: str) -> dict:
     Returns the decoded token payload if valid, otherwise raises HTTPException.
     """
     if not GOOGLE_CLIENT_ID:
-        raise HTTPException(
-            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail="GOOGLE_CLIENT_ID is not configured on the server."
-        )
+        raise_api_error(500, "google_client_id_not_configured")
     try:
         # Verify the ID token using Google's public certificates
         idinfo = id_token.verify_oauth2_token(token, requests.Request(), GOOGLE_CLIENT_ID)
@@ -37,15 +35,9 @@ def verify_google_token(token: str) -> dict:
             
         return idinfo
     except ValueError as e:
-        raise HTTPException(
-            status_code=status.HTTP_401_UNAUTHORIZED,
-            detail=f"Invalid Google token: {str(e)}"
-        )
+        raise_api_error(401, "invalid_google_token", reason=str(e))
     except Exception as e:
-        raise HTTPException(
-            status_code=status.HTTP_401_UNAUTHORIZED,
-            detail=f"Google token verification failed: {str(e)}"
-        )
+        raise_api_error(401, "google_token_verification_failed", reason=str(e))
 
 def create_access_token(data: dict, expires_delta: timedelta = timedelta(days=30)):
     to_encode = data.copy()
@@ -68,27 +60,15 @@ def get_current_user(
         email: str = payload.get("sub")
         user_id: int = payload.get("user_id")
         if email is None or user_id is None:
-            raise HTTPException(
-                status_code=status.HTTP_401_UNAUTHORIZED,
-                detail="Invalid token",
-            )
+            raise_api_error(401, "invalid_token")
         user = session.get(User, user_id)
         if not user or not user.is_active:
-            raise HTTPException(
-                status_code=status.HTTP_401_UNAUTHORIZED,
-                detail="Invalid user",
-            )
+            raise_api_error(401, "invalid_user")
         return user
     except jwt.ExpiredSignatureError:
-        raise HTTPException(
-            status_code=status.HTTP_401_UNAUTHORIZED,
-            detail="Token has expired",
-        )
+        raise_api_error(401, "token_expired")
     except jwt.InvalidTokenError:
-        raise HTTPException(
-            status_code=status.HTTP_401_UNAUTHORIZED,
-            detail="Invalid token",
-        )
+        raise_api_error(401, "invalid_token")
 
 def get_active_team(
     x_active_team_id: Optional[int] = Header(None, alias="X-Active-Team-ID"),
@@ -99,25 +79,15 @@ def get_active_team(
     # Ensure current_user is bound to the active session
     current_user = session.get(User, current_user.id)
     if not current_user:
-        raise HTTPException(
-            status_code=status.HTTP_401_UNAUTHORIZED,
-            detail="Invalid user session"
-        )
+        raise_api_error(401, "invalid_user_session")
         
     if not x_active_team_id:
         if not current_user.teams:
-            raise HTTPException(
-                status_code=status.HTTP_403_FORBIDDEN,
-                detail="User not associated with any team"
-            )
+            raise_api_error(403, "user_not_associated_with_team")
         return current_user.teams[0]
 
     team = session.get(Team, x_active_team_id)
     if not team or current_user not in team.admins:
-        raise HTTPException(
-            status_code=status.HTTP_403_FORBIDDEN,
-            detail="Not authorized for this team"
-        )
+        raise_api_error(403, "not_authorized_for_team")
         
     return team
-

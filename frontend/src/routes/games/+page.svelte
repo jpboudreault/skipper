@@ -3,6 +3,7 @@
 	import { goto } from '$app/navigation';
 	import { page } from '$app/stores';
 	import { apiFetch } from '$lib/api';
+	import { t, translate } from '$lib/i18n';
 
 	let { data } = $props();
 	const token = $derived(data.user?.token);
@@ -26,6 +27,17 @@
 		league: '',
 		notes: ''
 	});
+
+	const gameTypeKeys: Record<string, string> = {
+		season: 'games_type_season',
+		postseason: 'games_type_postseason',
+		tournament: 'games_type_tournament'
+	};
+
+	const modeKeys: Record<string, string> = {
+		compete: 'games_mode_compete',
+		develop: 'games_mode_develop'
+	};
 
 	async function fetchData() {
 		try {
@@ -71,12 +83,12 @@
 			}
 		} catch (e) {
 			console.error(e);
-			alert('Failed to create game.');
+			alert(translate('games_failed_create'));
 		}
 	}
 
 	async function deleteGame(id: number) {
-		if (!confirm('Delete this game?')) return;
+		if (!confirm(translate('games_delete_game_confirm'))) return;
 		try {
 			await apiFetch(`/games/${id}`, {
 				method: 'DELETE'
@@ -110,16 +122,16 @@
 <div class="mx-auto max-w-7xl px-4 py-8 sm:px-6 lg:px-8">
 	<div class="mb-6 sm:flex sm:items-center sm:justify-between">
 		<div>
-			<h1 class="text-base-content text-3xl font-bold">Games</h1>
+			<h1 class="text-base-content text-3xl font-bold">{$t('games_title')}</h1>
 			<p class="text-base-content/70 mt-2 text-sm">
-				Manage your game schedule, stats, and lineups.
+				{$t('games_description')}
 			</p>
 		</div>
 		<button
 			onclick={() => (showCreate = !showCreate)}
 			class="btn {showCreate ? 'btn-neutral' : 'btn-primary'} mt-4 shadow-md sm:mt-0"
 		>
-			{showCreate ? 'Cancel' : '+ New Game'}
+			{showCreate ? $t('games_cancel') : $t('games_new_game')}
 		</button>
 	</div>
 
@@ -130,7 +142,7 @@
 				: 'text-base-content/60'}"
 			onclick={() => (activeTab = 'schedule')}
 		>
-			Schedule
+			{$t('games_schedule')}
 		</button>
 		<button
 			class="tab tab-sm sm:tab-md {activeTab === 'pitching-plan'
@@ -138,17 +150,17 @@
 				: 'text-base-content/60'}"
 			onclick={fetchPitchingPlan}
 		>
-			Pitching Plan
+			{$t('games_pitching_plan')}
 		</button>
 	</div>
 
 	{#if activeTab === 'schedule'}
 		{#if showCreate}
 			<div class="card bg-base-100 border-base-300 mb-8 border p-6 shadow-xl">
-				<h3 class="text-base-content mb-4 text-lg font-bold">Create New Game</h3>
+				<h3 class="text-base-content mb-4 text-lg font-bold">{$t('games_create_new_game')}</h3>
 				<div class="grid grid-cols-1 gap-4 sm:grid-cols-3">
 					<div class="form-control">
-						<label for="date" class="label"><span class="label-text">Date</span></label>
+						<label for="date" class="label"><span class="label-text">{$t('common_date')}</span></label>
 						<input
 							id="date"
 							type="date"
@@ -157,82 +169,82 @@
 						/>
 					</div>
 					<div class="form-control">
-						<label for="game_number" class="label"><span class="label-text">Game #</span></label>
+						<label for="game_number" class="label"><span class="label-text">{$t('games_game_number')}</span></label>
 						<input
 							id="game_number"
 							type="text"
 							bind:value={newGame.game_number}
-							placeholder="Optional game #"
+							placeholder={$t('games_placeholder_game_number')}
 							class="input input-bordered input-sm w-full"
 						/>
 					</div>
 					<div class="form-control">
-						<label for="opponent" class="label"><span class="label-text">Opponent</span></label>
+						<label for="opponent" class="label"><span class="label-text">{$t('games_opponent')}</span></label>
 						<input
 							id="opponent"
 							type="text"
 							bind:value={newGame.opponent}
-							placeholder="Opponent team"
+							placeholder={$t('games_placeholder_opponent')}
 							class="input input-bordered input-sm w-full"
 						/>
 					</div>
 					<div class="form-control">
-						<label for="venue" class="label"><span class="label-text">Venue</span></label>
+						<label for="venue" class="label"><span class="label-text">{$t('games_venue')}</span></label>
 						<input
 							id="venue"
 							type="text"
 							bind:value={newGame.venue}
-							placeholder="Field name"
+							placeholder={$t('games_placeholder_venue')}
 							class="input input-bordered input-sm w-full"
 						/>
 					</div>
 					<div class="form-control">
-						<label for="home_away" class="label"><span class="label-text">Home/Away</span></label>
+						<label for="home_away" class="label"><span class="label-text">{$t('games_home_away')}</span></label>
 						<select
 							id="home_away"
 							bind:value={newGame.home_away}
 							class="select select-bordered select-sm w-full"
 						>
-							<option value="H">Home</option>
-							<option value="A">Away</option>
+							<option value="H">{$t('common_home')}</option>
+							<option value="A">{$t('common_away')}</option>
 						</select>
 					</div>
 					<div class="form-control">
-						<label for="mode" class="label"><span class="label-text">Optimizer Mode</span></label>
+						<label for="mode" class="label"><span class="label-text">{$t('games_optimizer_mode')}</span></label>
 						<select
 							id="mode"
 							bind:value={newGame.mode}
 							class="select select-bordered select-sm w-full"
 						>
-							<option value="compete">Compete (Win-focused)</option>
-							<option value="develop">Develop (Equal-play)</option>
+							<option value="compete">{$t('games_mode_compete_full')}</option>
+							<option value="develop">{$t('games_mode_develop_full')}</option>
 						</select>
 					</div>
 					<div class="form-control">
-						<label for="game_type" class="label"><span class="label-text">Game Type</span></label>
+						<label for="game_type" class="label"><span class="label-text">{$t('games_game_type')}</span></label>
 						<select
 							id="game_type"
 							bind:value={newGame.game_type}
 							class="select select-bordered select-sm w-full"
 						>
-							<option value="season">Season</option>
-							<option value="postseason">Postseason</option>
-							<option value="tournament">Tournament</option>
+							<option value="season">{$t('games_type_season')}</option>
+							<option value="postseason">{$t('games_type_postseason')}</option>
+							<option value="tournament">{$t('games_type_tournament')}</option>
 						</select>
 					</div>
 					<div class="form-control">
-						<label for="league" class="label"><span class="label-text">League</span></label>
+						<label for="league" class="label"><span class="label-text">{$t('games_league')}</span></label>
 						<input
 							id="league"
 							type="text"
 							bind:value={newGame.league}
-							placeholder="League abbreviation"
+							placeholder={$t('games_placeholder_league')}
 							class="input input-bordered input-sm w-full"
 						/>
 					</div>
 				</div>
 				<div class="mt-6 flex justify-end">
-					<button onclick={createGame} class="btn btn-success btn-sm"> Create Game </button>
+					<button onclick={createGame} class="btn btn-success btn-sm">{$t('games_create_game')}</button>
 				</div>
 			</div>
 		{/if}
@@ -241,24 +253,24 @@
 			{#if loading}
 				<div class="p-16 text-center">
 					<span class="loading loading-spinner loading-lg text-primary"></span>
-					<p class="text-base-content/60 mt-2 text-sm">Loading games...</p>
+					<p class="text-base-content/60 mt-2 text-sm">{$t('games_loading_games')}</p>
 				</div>
 			{:else if games.length === 0}
 				<div class="text-base-content/60 py-16 text-center">
-					<p class="text-lg">No games scheduled yet. Create one to get started!</p>
+					<p class="text-lg">{$t('games_no_games')}</p>
 				</div>
 			{:else}
 				<div class="overflow-x-auto">
 					<table class="table w-full">
 						<thead class="bg-base-200">
 							<tr>
-								<th class="text-base-content font-bold">Date</th>
-								<th class="text-base-content w-20 font-bold">Game #</th>
-								<th class="text-base-content font-bold">Opponent</th>
-								<th class="text-base-content w-20 font-bold">H/A</th>
-								<th class="text-base-content font-bold">Details</th>
-								<th class="text-base-content w-32 font-bold">Score</th>
-								<th class="text-base-content w-24 text-right font-bold">Actions</th>
+								<th class="text-base-content font-bold">{$t('common_date')}</th>
+								<th class="text-base-content w-20 font-bold">{$t('games_game_number')}</th>
+								<th class="text-base-content font-bold">{$t('games_opponent')}</th>
+								<th class="text-base-content w-20 font-bold">{$t('games_home_away')}</th>
+								<th class="text-base-content font-bold">{$t('games_details')}</th>
+								<th class="text-base-content w-32 font-bold">{$t('games_score')}</th>
+								<th class="text-base-content w-24 text-right font-bold">{$t('common_actions')}</th>
 							</tr>
 						</thead>
 						<tbody>
@@ -277,10 +289,10 @@
 												? 'badge-info'
 												: 'badge-success'} mr-1"
 										>
-											{game.mode}
+											{$t(modeKeys[game.mode] ?? game.mode)}
 										</span>
 										<span class="badge badge-sm badge-neutral">
-											{game.game_type}
+											{$t(gameTypeKeys[game.game_type] ?? game.game_type)}
 										</span>
 									</td>
 									<td>
@@ -298,7 +310,7 @@
 												e.stopPropagation();
 												deleteGame(game.id);
 											}}
-											class="btn btn-ghost btn-error btn-xs">Delete</button
+											class="btn btn-ghost btn-error btn-xs">{$t('common_delete')}</button
 										>
 									</td>
 								</tr>
@@ -315,11 +327,11 @@
 			{#if loadingPitching}
 				<div class="p-16 text-center">
 					<span class="loading loading-spinner loading-lg text-primary"></span>
-					<p class="text-base-content/60 mt-2 text-sm">Loading pitching plan...</p>
+					<p class="text-base-content/60 mt-2 text-sm">{$t('games_loading_pitching_plan')}</p>
 				</div>
 			{:else if !pitchingPlanData || pitchingPlanData.games.length === 0}
 				<div class="text-base-content/60 py-16 text-center">
-					<p class="text-lg">No games found in the timeframe.</p>
+					<p class="text-lg">{$t('games_no_games_timeframe')}</p>
 				</div>
 			{:else}
 				<div class="overflow-x-auto">
@@ -327,7 +339,7 @@
 						<thead class="bg-base-200">
 							<tr>
 								<th class="text-base-content bg-base-200 sticky left-0 z-20 w-48 font-bold"
-									>Player</th
+									>{$t('common_player')}</th
 								>
 								{#each pitchingPlanData.games as game}
 									<th class="text-base-content border-base-300 border-l text-center font-bold">
@@ -339,12 +351,12 @@
 											})}
 										</div>
 										<div class="mx-auto max-w-[100px] truncate" title={game.opponent}>
-											{game.opponent || 'TBD'}
+											{game.opponent || $t('dashboard_tbd')}
 										</div>
 									</th>
 								{/each}
 								<th class="text-base-content border-base-300 border-l text-center font-bold"
-									>Total</th
+									>{$t('common_total')}</th
 								>
 							</tr>
 						</thead>
