@@ -356,4 +356,59 @@ async def test_solve_lock_validations(client: AsyncClient, session):
     assert "Pitcher Re-entry violation" in solve_res.json()["detail"]
 
 
+@pytest.mark.asyncio
+async def test_lineup_inning_count(client: AsyncClient, session):
+    team_res = await client.post("/teams/", json={
+        "name": "Inning Team", "season": "2025", "innings_per_game": 6,
+        "max_pitcher_innings_per_game": 3, "max_pitcher_innings_per_7_days": 4,
+        "late_inning_weight": 1.5, "language": "en", "pitch_count_rules_json": "{}"
+    })
+    team = team_res.json()
+
+    game_res = await client.post("/games/", json={
+        "date": "2026-06-01",
+        "opponent": "Rival Team", "venue": "Home Field",
+        "home_away": "H", "mode": "compete"
+    })
+    game = game_res.json()
+
+    player_res = await client.post("/players/", json={
+        "first_name": "Test", "last_name": "Player", "jersey": 1, "active": True
+    })
+    player = player_res.json()
+
+    await client.put(f"/games/{game['id']}/lineup", json=[
+        {"inning": 5, "player_id": player["id"], "position": 3, "locked": True},
+        {"inning": 6, "player_id": player["id"], "position": 4, "locked": True},
+    ])
+
+    reduce_res = await client.put(f"/games/{game['id']}", json={
+        "date": "2026-06-01",
+        "innings_played": 5,
+    })
+    assert reduce_res.status_code == 200
+    assert reduce_res.json()["innings_played"] == 5
+
+    lineup_res = await client.get(f"/games/{game['id']}/lineup")
+    lineup = lineup_res.json()
+    assert len(lineup) == 1
+    assert lineup[0]["inning"] == 5
+
+    invalid_res = await client.put(f"/games/{game['id']}", json={
+        "date": "2026-06-01",
+        "innings_played": 13,
+    })
+    assert invalid_res.status_code == 400
+
+    out_of_range_res = await client.put(f"/games/{game['id']}/lineup", json=[
+        {"inning": 6, "player_id": player["id"], "position": 3, "locked": True},
+    ])
+    assert out_of_range_res.status_code == 400
+
+    expand_res = await client.put(f"/games/{game['id']}", json={
+        "date": "2026-06-01",
+        "innings_played": 7,
+    })
+    assert expand_res.status_code == 200
+    assert expand_res.json()["innings_played"] == 7
 

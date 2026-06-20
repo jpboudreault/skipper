@@ -66,6 +66,8 @@ MESSAGES: dict[str, dict[str, str]] = {
         "forbidden_position_substitute_pitch": "Forbidden Position: {player_name} is a substitute and cannot pitch, but is locked to that position in Inning {inning}.",
         "forbidden_position": "Forbidden Position: {player_name} is forbidden from playing {position}, but is locked to that position in Inning {inning}.",
         "no_feasible_lineup": "No feasible lineup found. Check constraints and availability.",
+        "invalid_inning_count": "Inning count must be between {min_innings} and {max_innings}.",
+        "lineup_inning_out_of_range": "Lineup cell for inning {inning} is outside the game range (1-{max_inning}).",
     },
     "fr": {
         "internal_server_error": "Erreur interne du serveur",
@@ -102,6 +104,8 @@ MESSAGES: dict[str, dict[str, str]] = {
         "forbidden_position_substitute_pitch": "Position interdite : {player_name} est un substitut et ne peut pas lancer, mais est verrouillé à cette position à la manche {inning}.",
         "forbidden_position": "Position interdite : {player_name} ne peut pas jouer {position}, mais est verrouillé à cette position à la manche {inning}.",
         "no_feasible_lineup": "Aucune composition réalisable. Vérifiez les contraintes et la disponibilité.",
+        "invalid_inning_count": "Le nombre de manches doit être entre {min_innings} et {max_innings}.",
+        "lineup_inning_out_of_range": "La cellule d'alignement pour la manche {inning} dépasse la plage du match (1-{max_inning}).",
     },
 }
 

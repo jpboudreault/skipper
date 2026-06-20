@@ -19,6 +19,10 @@
 	let savingOrder = $state(false);
 	let autoSaving = $state(false);
 	let injuryMode = $state(false);
+	let changingInnings = $state(false);
+
+	const MIN_INNINGS = 1;
+	const MAX_INNINGS = 12;
 
 	// Batting order: ordered list of player IDs
 	let battingOrder: number[] = $state([]);
@@ -347,6 +351,42 @@
 		return total;
 	}
 
+	async function changeInnings(delta: number) {
+		if (!game || changingInnings) return;
+		const newCount = numInnings + delta;
+		if (newCount < MIN_INNINGS || newCount > MAX_INNINGS) return;
+
+		changingInnings = true;
+		try {
+			const res = await apiFetch(`/games/${$page.params.id}`, {
+				method: 'PUT',
+				headers: { 'Content-Type': 'application/json' },
+				body: JSON.stringify({ date: game.date, innings_played: newCount })
+			});
+			if (!res.ok) {
+				const err = await res.json();
+				alert(translate('lineup_error_prefix', { message: err.detail }));
+				return;
+			}
+
+			game = await res.json();
+			lineup = lineup.filter(l => l.inning <= newCount);
+			availability = availability.map(a =>
+				a.injury_inning !== null && a.injury_inning > newCount
+					? { ...a, injury_inning: null }
+					: a
+			);
+
+			const lRes = await apiFetch(`/games/${$page.params.id}/lineup`);
+			if (lRes.ok) lineup = await lRes.json();
+		} catch (e) {
+			console.error(e);
+			alert(translate('lineup_failed_change_innings'));
+		} finally {
+			changingInnings = false;
+		}
+	}
+
 </script>
 
 <div class="space-y-6 print:hidden">
@@ -357,6 +397,32 @@
 			<div>
 				<h2 class="text-xl font-bold text-base-content">{$t('lineup_title')}</h2>
 				<p class="text-sm text-base-content/70">{$t('lineup_description')}</p>
+				<div class="flex items-center gap-2 mt-2">
+					<span class="text-sm font-semibold text-base-content/80">{$t('lineup_innings_label')}:</span>
+					<div class="join border border-base-300">
+						<button
+							class="btn btn-xs join-item"
+							onclick={() => changeInnings(-1)}
+							disabled={changingInnings || numInnings <= MIN_INNINGS}
+							aria-label={$t('lineup_remove_inning')}
+							title={$t('lineup_remove_inning')}
+						>−</button>
+						<span class="btn btn-xs join-item btn-ghost no-animation pointer-events-none min-w-16">
+							{#if changingInnings}
+								<span class="loading loading-spinner loading-xs"></span>
+							{:else}
+								{$t('lineup_innings_count', { count: numInnings })}
+							{/if}
+						</span>
+						<button
+							class="btn btn-xs join-item"
+							onclick={() => changeInnings(1)}
+							disabled={changingInnings || numInnings >= MAX_INNINGS}
+							aria-label={$t('lineup_add_inning')}
+							title={$t('lineup_add_inning')}
+						>+</button>
+					</div>
+				</div>
 			</div>
 			<div class="flex gap-2 items-center flex-wrap">
 				{#if autoSaving}

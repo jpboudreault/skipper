@@ -189,6 +189,11 @@
   "lineup_failed_save_batting_order": "Failed to save batting order",
   "lineup_failed_update_injury": "Failed to update injury status",
   "lineup_sub": "Sub",
+  "lineup_innings_label": "Innings",
+  "lineup_add_inning": "Add inning",
+  "lineup_remove_inning": "Remove inning",
+  "lineup_innings_count": "{count} innings",
+  "lineup_failed_change_innings": "Failed to update inning count",
 
   "batting_title": "Batting Stats",
   "batting_description": "Enter game batting stats for each player. Click Save when done.",

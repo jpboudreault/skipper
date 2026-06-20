@@ -15,7 +15,26 @@ import os
 
 router = APIRouter(prefix="/games", tags=["games"])
 
+MIN_LINEUP_INNINGS = 1
+MAX_LINEUP_INNINGS = 12
+
 # --- Helper Dependency ---
+
+def resolve_lineup_innings(game: Game, team: Team) -> int:
+    return game.innings_played or team.innings_per_game
+
+def cleanup_lineup_beyond_innings(game: Game, max_inning: int, session: Session) -> None:
+    extra_cells = session.exec(
+        select(Lineup).where(Lineup.game_id == game.id, Lineup.inning > max_inning)
+    ).all()
+    for cell in extra_cells:
+        session.delete(cell)
+
+    avails = session.exec(select(Availability).where(Availability.game_id == game.id)).all()
+    for avail in avails:
+        if avail.injury_inning is not None and avail.injury_inning > max_inning:
+            avail.injury_inning = None
+            session.add(avail)
 
 def get_active_game(
     game_id: int,
@@ -62,8 +81,27 @@ def get_game(game: Game = Depends(get_active_game)):
 
 @router.put("/{game_id}", response_model=Game)
 def update_game(game_data: GameCreate, game: Game = Depends(get_active_game), session: Session = Depends(get_session)):
-    for key, value in game_data.model_dump(exclude_unset=True).items():
+    team = session.get(Team, game.team_id)
+    if not team:
+        raise_api_error(404, "team_not_found")
+
+    updates = game_data.model_dump(exclude_unset=True)
+    if "innings_played" in updates and updates["innings_played"] is not None:
+        innings = updates["innings_played"]
+        if innings < MIN_LINEUP_INNINGS or innings > MAX_LINEUP_INNINGS:
+            raise_api_error(
+                400,
+                "invalid_inning_count",
+                min_innings=MIN_LINEUP_INNINGS,
+                max_innings=MAX_LINEUP_INNINGS,
+            )
+
+    for key, value in updates.items():
         setattr(game, key, value)
+
+    if "innings_played" in updates:
+        cleanup_lineup_beyond_innings(game, resolve_lineup_innings(game, team), session)
+
     session.add(game)
     session.commit()
     session.refresh(game)
@@ -300,6 +338,11 @@ def get_lineup(game: Game = Depends(get_active_game), session: Session = Depends
 
 @router.put("/{game_id}/lineup")
 def set_lineup(cells: List[LineupCell], game: Game = Depends(get_active_game), session: Session = Depends(get_session)):
+    team = session.get(Team, game.team_id)
+    if not team:
+        raise_api_error(404, "team_not_found")
+
+    max_inning = resolve_lineup_innings(game, team)
     player_ids = [cell.player_id for cell in cells]
     players = session.exec(select(Player).where(Player.id.in_(player_ids), Player.team_id == game.team_id)).all()
     valid_player_ids = {p.id for p in players}
@@ -307,6 +350,13 @@ def set_lineup(cells: List[LineupCell], game: Game = Depends(get_active_game), s
     for cell in cells:
         if cell.player_id not in valid_player_ids:
             raise_api_error(400, "player_not_found", player_id=cell.player_id)
+        if cell.inning < 1 or cell.inning > max_inning:
+            raise_api_error(
+                400,
+                "lineup_inning_out_of_range",
+                inning=cell.inning,
+                max_inning=max_inning,
+            )
 
     # Delete existing lineup for this game and re-insert
     existing = session.exec(select(Lineup).where(Lineup.game_id == game.id)).all()
@@ -332,7 +382,7 @@ def solve_game_lineup(game: Game = Depends(get_active_game), session: Session = 
     if not team:
         raise_api_error(404, "team_not_found")
 
-    innings = game.innings_played or team.innings_per_game
+    innings = resolve_lineup_innings(game, team)
 
     # Get available players (excluding coaches)
     all_players = session.exec(select(Player).where(Player.team_id == game.team_id, Player.active == True, Player.is_coach == False)).all()

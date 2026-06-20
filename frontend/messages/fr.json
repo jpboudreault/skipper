@@ -189,6 +189,11 @@
   "lineup_failed_save_batting_order": "Échec de l'enregistrement de l'ordre de frappe",
   "lineup_failed_update_injury": "Échec de la mise à jour du statut de blessure",
   "lineup_sub": "Sub",
+  "lineup_innings_label": "Manches",
+  "lineup_add_inning": "Ajouter une manche",
+  "lineup_remove_inning": "Retirer une manche",
+  "lineup_innings_count": "{count} manches",
+  "lineup_failed_change_innings": "Échec de la mise à jour du nombre de manches",
 
   "batting_title": "Statistiques de frappe",
   "batting_description": "Entrez les statistiques de frappe de chaque joueur pour le match. Cliquez sur Enregistrer lorsque vous avez terminé.",
