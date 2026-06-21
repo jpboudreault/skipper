@@ -68,6 +68,7 @@ MESSAGES: dict[str, dict[str, str]] = {
         "no_feasible_lineup": "No feasible lineup found. Check constraints and availability.",
         "invalid_inning_count": "Inning count must be between {min_innings} and {max_innings}.",
         "lineup_inning_out_of_range": "Lineup cell for inning {inning} is outside the game range (1-{max_inning}).",
+        "schedule_sync_not_configured": "Schedule sync is not configured for this team.",
     },
     "fr": {
         "internal_server_error": "Erreur interne du serveur",
@@ -106,6 +107,7 @@ MESSAGES: dict[str, dict[str, str]] = {
         "no_feasible_lineup": "Aucune composition réalisable. Vérifiez les contraintes et la disponibilité.",
         "invalid_inning_count": "Le nombre de manches doit être entre {min_innings} et {max_innings}.",
         "lineup_inning_out_of_range": "La cellule d'alignement pour la manche {inning} dépasse la plage du match (1-{max_inning}).",
+        "schedule_sync_not_configured": "La synchronisation de l'horaire n'est pas configurée pour cette équipe.",
     },
 }
 

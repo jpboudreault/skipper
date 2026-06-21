@@ -1,0 +1,115 @@
+<script lang="ts">
+	import { onMount } from 'svelte';
+	import { apiFetch } from '$lib/api';
+	import { t } from '$lib/i18n';
+
+	let { gameId }: { gameId: number } = $props();
+
+	type Standing = {
+		rank?: number;
+		wins?: number;
+		losses?: number;
+		pct?: number;
+		points?: number;
+	};
+
+	type RecentGame = {
+		date?: string;
+		opponent?: string;
+		score?: string;
+		result?: string;
+	};
+
+	type IntelPayload = {
+		available: boolean;
+		opponent_name?: string;
+		standing?: Standing;
+		recent_games?: RecentGame[];
+		spordle_url?: string;
+		fetched_at?: string;
+	};
+
+	let intel: IntelPayload | null = $state(null);
+	let loading = $state(true);
+
+	onMount(async () => {
+		try {
+			const res = await apiFetch(`/games/${gameId}/opponent-intel`);
+			if (res.ok) {
+				intel = await res.json();
+			}
+		} catch (e) {
+			console.error(e);
+		} finally {
+			loading = false;
+		}
+	});
+
+	function resultBadge(result?: string) {
+		if (result === 'win') return 'badge-success';
+		if (result === 'loss') return 'badge-error';
+		return 'badge-ghost';
+	}
+</script>
+
+{#if loading}
+	<!-- no skeleton: omit section until loaded -->
+{:else if intel?.available}
+	<div class="card bg-base-100 border border-base-300 shadow-xl p-6 space-y-4">
+		<div class="flex flex-wrap items-center justify-between gap-2 border-b border-base-200 pb-2">
+			<h2 class="text-xl font-bold text-base-content">{$t('opponent_intel_title')}</h2>
+			{#if intel.fetched_at}
+				<span class="text-xs text-base-content/50">{$t('opponent_intel_updated', { time: intel.fetched_at.slice(0, 16).replace('T', ' ') })}</span>
+			{/if}
+		</div>
+
+		{#if intel.standing}
+			<div class="grid grid-cols-2 sm:grid-cols-4 gap-3">
+				<div class="stat bg-base-200 rounded-box p-3">
+					<div class="stat-title text-xs">{$t('opponent_intel_rank')}</div>
+					<div class="stat-value text-2xl text-primary">#{intel.standing.rank ?? '—'}</div>
+				</div>
+				<div class="stat bg-base-200 rounded-box p-3">
+					<div class="stat-title text-xs">{$t('opponent_intel_record')}</div>
+					<div class="stat-value text-2xl">{intel.standing.wins ?? 0}-{intel.standing.losses ?? 0}</div>
+				</div>
+				<div class="stat bg-base-200 rounded-box p-3">
+					<div class="stat-title text-xs">{$t('opponent_intel_win_pct')}</div>
+					<div class="stat-value text-2xl">{intel.standing.pct != null ? intel.standing.pct.toFixed(3) : '—'}</div>
+				</div>
+				<div class="stat bg-base-200 rounded-box p-3">
+					<div class="stat-title text-xs">{$t('opponent_intel_points')}</div>
+					<div class="stat-value text-2xl">{intel.standing.points ?? '—'}</div>
+				</div>
+			</div>
+		{/if}
+
+		{#if intel.recent_games && intel.recent_games.length > 0}
+			<div>
+				<h3 class="font-semibold text-base-content mb-2">{$t('opponent_intel_recent_games')}</h3>
+				<ul class="space-y-2">
+					{#each intel.recent_games as game}
+						<li class="flex flex-wrap items-center gap-2 text-sm border border-base-200 rounded-lg px-3 py-2">
+							<span class="text-base-content/60">{game.date}</span>
+							<span class="font-medium">{game.opponent}</span>
+							{#if game.score}
+								<span class="font-mono">{game.score}</span>
+							{/if}
+							{#if game.result}
+								<span class="badge badge-sm {resultBadge(game.result)} uppercase">{game.result}</span>
+							{/if}
+						</li>
+					{/each}
+				</ul>
+			</div>
+		{/if}
+
+		{#if intel.spordle_url}
+			<div class="pt-2">
+				<a href={intel.spordle_url} target="_blank" rel="noopener noreferrer" class="btn btn-outline btn-sm">
+					{$t('opponent_intel_view_spordle')}
+				</a>
+			</div>
+		{/if}
+	</div>
+{/if}

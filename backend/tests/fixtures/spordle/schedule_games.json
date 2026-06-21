@@ -1,0 +1,51 @@
+[
+  {
+    "id": 834550,
+    "date": "2026-05-23",
+    "scheduleId": 193095,
+    "homeTeamId": 167495,
+    "awayTeamId": 162670,
+    "homeTeam": {"id": 167495, "name": "BLUE EXPOS"},
+    "awayTeam": {"id": 162670, "name": "RIVAL STARS"},
+    "teamStats": [
+      {"teamId": 167495, "goalFor": 12, "goalAgainst": 11, "gameResult": "win", "points": 2},
+      {"teamId": 162670, "goalFor": 11, "goalAgainst": 12, "gameResult": "loss", "points": 0}
+    ]
+  },
+  {
+    "id": 843170,
+    "date": "2026-05-24",
+    "scheduleId": 193095,
+    "homeTeamId": 160919,
+    "awayTeamId": 162670,
+    "homeTeam": {"id": 160919, "name": "PHENIX"},
+    "awayTeam": {"id": 162670, "name": "RIVAL STARS"},
+    "teamStats": [
+      {"teamId": 160919, "goalFor": 10, "goalAgainst": 5, "gameResult": "win", "points": 2},
+      {"teamId": 162670, "goalFor": 5, "goalAgainst": 10, "gameResult": "loss", "points": 0}
+    ]
+  },
+  {
+    "id": 842370,
+    "date": "2026-05-25",
+    "scheduleId": 193095,
+    "homeTeamId": 168282,
+    "awayTeamId": 162670,
+    "homeTeam": {"id": 168282, "name": "CARDINALS"},
+    "awayTeam": {"id": 162670, "name": "RIVAL STARS"},
+    "teamStats": [
+      {"teamId": 168282, "goalFor": 13, "goalAgainst": 9, "gameResult": "win", "points": 2},
+      {"teamId": 162670, "goalFor": 9, "goalAgainst": 13, "gameResult": "loss", "points": 0}
+    ]
+  },
+  {
+    "id": 900001,
+    "date": "2026-06-01",
+    "scheduleId": 193095,
+    "homeTeamId": 167495,
+    "awayTeamId": 162670,
+    "homeTeam": {"id": 167495, "name": "BLUE EXPOS"},
+    "awayTeam": {"id": 162670, "name": "RIVAL STARS"},
+    "teamStats": []
+  }
+]

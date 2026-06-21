@@ -1,0 +1,122 @@
+"""Map Spordle game payloads to Skipper fields and resolve games."""
+
+from __future__ import annotations
+
+from datetime import date
+from typing import List, Optional
+
+from app.models import Game
+
+
+def games_for_team(schedule_games: List[dict], our_team_id: int) -> List[dict]:
+    return [
+        g
+        for g in schedule_games
+        if g.get("homeTeamId") == our_team_id or g.get("awayTeamId") == our_team_id
+    ]
+
+
+def opponent_name(game: dict, our_team_id: int) -> str:
+    if game.get("homeTeamId") == our_team_id:
+        team = game.get("awayTeam") or {}
+    else:
+        team = game.get("homeTeam") or {}
+    return team.get("shortName") or team.get("name") or "TBD"
+
+
+def _stat_for_team(game: dict, team_id: int) -> Optional[dict]:
+    for row in game.get("teamStats") or []:
+        if row.get("teamId") == team_id:
+            return row
+    return None
+
+
+def spordle_game_to_fields(spordle_game: dict, our_team_id: int, *, default_league: Optional[str]) -> dict:
+    home_id = spordle_game.get("homeTeamId")
+    away_id = spordle_game.get("awayTeamId")
+    is_home = home_id == our_team_id
+    stat = _stat_for_team(spordle_game, our_team_id)
+
+    fields = {
+        "date": spordle_game.get("date"),
+        "game_number": spordle_game.get("number"),
+        "opponent": opponent_name(spordle_game, our_team_id),
+        "home_away": "H" if is_home else "A",
+        "external_source": "spordle",
+        "external_game_id": str(spordle_game["id"]),
+        "league": default_league,
+        "mode": "compete",
+        "game_type": "season",
+    }
+
+    surface = spordle_game.get("surface") or {}
+    venue = surface.get("name") or surface.get("shortName")
+    if venue:
+        fields["venue"] = venue
+
+    if stat and stat.get("gameResult"):
+        fields["result_runs_for"] = stat.get("goalFor")
+        fields["result_runs_against"] = stat.get("goalAgainst")
+
+    return fields
+
+
+def resolve_spordle_game(
+    game: Game,
+    schedule_games: List[dict],
+    our_team_id: int,
+) -> Optional[dict]:
+    if game.external_game_id:
+        for spordle_game in schedule_games:
+            if str(spordle_game.get("id")) == str(game.external_game_id):
+                return spordle_game
+        return None
+
+    game_date = game.date.isoformat() if isinstance(game.date, date) else str(game.date)
+    candidates = [
+        g
+        for g in schedule_games
+        if g.get("date") == game_date
+        and our_team_id in (g.get("homeTeamId"), g.get("awayTeamId"))
+    ]
+    if not candidates:
+        return None
+    if game.game_number:
+        numbered = [g for g in candidates if g.get("number") == game.game_number]
+        if numbered:
+            candidates = numbered
+    if len(candidates) == 1:
+        return candidates[0]
+    return candidates[0]
+
+
+def pick_existing_game(
+    existing_games: List[Game],
+    spordle_game: dict,
+) -> Optional[Game]:
+    external_id = str(spordle_game["id"])
+    for game in existing_games:
+        if game.external_game_id == external_id:
+            return game
+
+    spordle_date = spordle_game.get("date")
+    date_matches = [
+        g
+        for g in existing_games
+        if (g.date.isoformat() if isinstance(g.date, date) else str(g.date)) == spordle_date
+    ]
+    if not date_matches:
+        return None
+
+    number = spordle_game.get("number")
+    if number:
+        for game in date_matches:
+            if game.game_number == number:
+                return game
+
+    unmatched = [g for g in date_matches if not g.external_game_id]
+    if len(unmatched) == 1:
+        return unmatched[0]
+    if len(date_matches) == 1:
+        return date_matches[0]
+    return None

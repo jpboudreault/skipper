@@ -3,16 +3,30 @@
 	import { onMount } from 'svelte';
 	import { apiFetch } from '$lib/api';
 	import { t } from '$lib/i18n';
+	import { getOpponentIntelComponent } from '$lib/league_integrations';
 
 	let game: any = $state(null);
+	let activeTeam: any = $state(null);
 	let editing = $state(false);
+
+	let OpponentIntel = $derived(getOpponentIntelComponent(activeTeam?.integration_version));
 
 	async function fetchGame() {
 		const res = await apiFetch(`/games/${$page.params.id}`);
 		if (res.ok) game = await res.json();
 	}
 
-	onMount(fetchGame);
+	async function fetchActiveTeam() {
+		const res = await apiFetch('/teams/');
+		if (!res.ok) return;
+		const teams = await res.json();
+		const cachedId = sessionStorage.getItem('activeTeamId');
+		activeTeam = teams.find((team: any) => team.id.toString() === cachedId) ?? teams[0] ?? null;
+	}
+
+	onMount(async () => {
+		await Promise.all([fetchGame(), fetchActiveTeam()]);
+	});
 
 	async function saveGame() {
 		if (!game) return;
@@ -125,6 +139,24 @@
 					<p class="text-base-content font-medium ml-1">{game.result_runs_against ?? '—'}</p>
 				{/if}
 			</div>
+			{#if activeTeam?.integration_version}
+				<div class="form-control sm:col-span-2">
+					<label for="edit_external_game_id" class="label">
+						<span class="label-text font-semibold">{$t('games_external_game_id')}</span>
+					</label>
+					{#if editing}
+						<input
+							id="edit_external_game_id"
+							type="text"
+							bind:value={game.external_game_id}
+							placeholder={$t('games_placeholder_external_game_id')}
+							class="input input-bordered input-sm w-full"
+						/>
+					{:else}
+						<p class="text-base-content font-medium ml-1">{game.external_game_id || '—'}</p>
+					{/if}
+				</div>
+			{/if}
 		</div>
 
 		<div class="flex gap-2 pt-4 border-t border-base-200 justify-end">
@@ -136,4 +168,10 @@
 			{/if}
 		</div>
 	</div>
+
+	{#if OpponentIntel}
+		<div class="mt-6">
+			<OpponentIntel gameId={game.id} />
+		</div>
+	{/if}
 {/if}

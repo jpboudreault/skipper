@@ -10,6 +10,8 @@
 
 	let games: any[] = $state([]);
 	let loading = $state(true);
+	let syncing = $state(false);
+	let syncMessage = $state('');
 	let showCreate = $state(false);
 	let teams: any[] = $state([]);
 	let activeTab = $state('schedule');
@@ -38,6 +40,10 @@
 		compete: 'games_mode_compete',
 		develop: 'games_mode_develop'
 	};
+
+	let activeTeam = $derived(
+		teams.find((t: any) => t.id.toString() === sessionStorage.getItem('activeTeamId')) ?? teams[0] ?? null
+	);
 
 	async function fetchData() {
 		try {
@@ -87,6 +93,26 @@
 		}
 	}
 
+	async function syncSchedule() {
+		syncing = true;
+		syncMessage = '';
+		try {
+			const res = await apiFetch('/games/sync-schedule', { method: 'POST' });
+			const payload = await res.json();
+			if (res.ok) {
+				syncMessage = translate('games_sync_success', payload);
+				await fetchData();
+			} else {
+				syncMessage = payload.detail || translate('games_sync_failed');
+			}
+		} catch (e) {
+			console.error(e);
+			syncMessage = translate('games_sync_failed');
+		} finally {
+			syncing = false;
+		}
+	}
+
 	async function deleteGame(id: number) {
 		if (!confirm(translate('games_delete_game_confirm'))) return;
 		try {
@@ -127,13 +153,27 @@
 				{$t('games_description')}
 			</p>
 		</div>
+		<div class="flex flex-wrap gap-2 mt-4 sm:mt-0">
 		<button
 			onclick={() => (showCreate = !showCreate)}
-			class="btn {showCreate ? 'btn-neutral' : 'btn-primary'} mt-4 shadow-md sm:mt-0"
+			class="btn {showCreate ? 'btn-neutral' : 'btn-primary'} shadow-md"
 		>
 			{showCreate ? $t('games_cancel') : $t('games_new_game')}
 		</button>
+		{#if activeTeam?.integration_version}
+			<button
+				onclick={syncSchedule}
+				class="btn btn-outline btn-secondary shadow-md"
+				disabled={syncing}
+			>
+				{syncing ? $t('games_syncing') : $t('games_sync_schedule')}
+			</button>
+		{/if}
+		</div>
 	</div>
+	{#if syncMessage}
+		<p class="text-sm text-base-content/70 mb-4">{syncMessage}</p>
+	{/if}
 
 	<div class="tabs tabs-boxed bg-base-100 border-base-300 mb-6 max-w-md border p-1 shadow-sm">
 		<button

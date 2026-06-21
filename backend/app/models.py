@@ -28,6 +28,8 @@ class Team(SQLModel, table=True):
     default_league: Optional[str] = None
     lineup_print_version: str = Field(default="baseball_quebec")
     scoresheet_version: str = Field(default="baseball_quebec")
+    integration_version: Optional[str] = None
+    integration_config_json: Optional[str] = None
 
     players: List["Player"] = Relationship(back_populates="team")
     admins: List["User"] = Relationship(back_populates="teams", link_model=UserTeamLink)
@@ -91,6 +93,8 @@ class Game(SQLModel, table=True):
     game_type: str = Field(default="season")  # 'season', 'postseason', or 'tournament'
     league: Optional[str] = None
     notes: Optional[str] = None
+    external_source: Optional[str] = None
+    external_game_id: Optional[str] = None
 
 class GameCreate(SQLModel):
     date: date
@@ -105,6 +109,8 @@ class GameCreate(SQLModel):
     game_type: str = "season"
     league: Optional[str] = None
     notes: Optional[str] = None
+    external_source: Optional[str] = None
+    external_game_id: Optional[str] = None
 
 class Availability(SQLModel, table=True):
     game_id: int = Field(foreign_key="game.id", primary_key=True)

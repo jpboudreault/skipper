@@ -12,6 +12,7 @@ from app.db import get_session
 from typing import List, Optional
 from pydantic import BaseModel
 import os
+import re
 
 router = APIRouter(prefix="/games", tags=["games"])
 
@@ -46,11 +47,38 @@ def get_active_game(
         raise_api_error(404, "game_not_found")
     return game
 
+def normalize_external_game_id(value: Optional[str]) -> Optional[str]:
+    if value is None:
+        return None
+    stripped = value.strip()
+    if not stripped:
+        return None
+    if stripped.isdigit():
+        return stripped
+    match = re.search(r"(?:gameId|game_id|id)=(\d+)", stripped, re.IGNORECASE)
+    if match:
+        return match.group(1)
+    trailing = re.search(r"/(\d+)/?$", stripped)
+    if trailing:
+        return trailing.group(1)
+    return stripped
+
+def apply_external_game_fields(updates: dict, team: Team) -> None:
+    if "external_game_id" not in updates:
+        return
+    normalized = normalize_external_game_id(updates.get("external_game_id"))
+    updates["external_game_id"] = normalized
+    if normalized and team.integration_version == "lfbq_spordle":
+        updates["external_source"] = "spordle"
+    elif not normalized:
+        updates["external_source"] = None
+
 # --- Game CRUD ---
 
 @router.post("/", response_model=Game)
 def create_game(game_data: GameCreate, session: Session = Depends(get_session), active_team: Team = Depends(get_active_team)):
     game_dict = game_data.model_dump()
+    apply_external_game_fields(game_dict, active_team)
     game_dict["team_id"] = active_team.id
     game = Game(**game_dict)
     session.add(game)
@@ -75,6 +103,17 @@ def list_games(session: Session = Depends(get_session), active_team: Team = Depe
     games = session.exec(select(Game).where(Game.team_id == active_team.id)).all()
     return games
 
+@router.post("/sync-schedule")
+def sync_schedule(session: Session = Depends(get_session), active_team: Team = Depends(get_active_team)):
+    if active_team.integration_version != "lfbq_spordle":
+        raise_api_error(400, "schedule_sync_not_configured")
+    from app.league_integrations.lfbq_spordle.sync import sync_team_schedule
+
+    result = sync_team_schedule(session, active_team)
+    if not result.get("ok"):
+        raise_api_error(400, "schedule_sync_not_configured")
+    return result
+
 @router.get("/{game_id}", response_model=Game)
 def get_game(game: Game = Depends(get_active_game)):
     return game
@@ -86,6 +125,7 @@ def update_game(game_data: GameCreate, game: Game = Depends(get_active_game), se
         raise_api_error(404, "team_not_found")
 
     updates = game_data.model_dump(exclude_unset=True)
+    apply_external_game_fields(updates, team)
     if "innings_played" in updates and updates["innings_played"] is not None:
         innings = updates["innings_played"]
         if innings < MIN_LINEUP_INNINGS or innings > MAX_LINEUP_INNINGS:
@@ -106,6 +146,15 @@ def update_game(game_data: GameCreate, game: Game = Depends(get_active_game), se
     session.commit()
     session.refresh(game)
     return game
+
+@router.get("/{game_id}/opponent-intel")
+def get_game_opponent_intel(
+    game: Game = Depends(get_active_game),
+    active_team: Team = Depends(get_active_team),
+):
+    from app.league_integrations import get_opponent_intel
+
+    return get_opponent_intel(game, active_team)
 
 @router.delete("/{game_id}")
 def delete_game(game: Game = Depends(get_active_game), session: Session = Depends(get_session)):

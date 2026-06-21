@@ -1,0 +1,10 @@
+{
+  "id": 900001,
+  "date": "2026-06-01",
+  "scheduleId": 193095,
+  "homeTeamId": 167495,
+  "awayTeamId": 162670,
+  "homeTeam": {"id": 167495, "name": "BLUE EXPOS"},
+  "awayTeam": {"id": 162670, "name": "RIVAL STARS"},
+  "teamStats": []
+}

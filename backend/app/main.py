@@ -39,6 +39,10 @@ def seed_tenants_and_admins():
             ).first()
             
             pitch_rules_str = json.dumps(tenant.get("pitch_count_rules", {}))
+            integration_config = tenant.get("integration_config")
+            integration_config_str = (
+                json.dumps(integration_config) if integration_config is not None else None
+            )
             
             if not team:
                 print(f"Seeding team: {tenant['name']} for season {tenant['season']}")
@@ -56,6 +60,8 @@ def seed_tenants_and_admins():
                     default_league=tenant.get("default_league"),
                     lineup_print_version=tenant.get("lineup_print_version", "baseball_quebec"),
                     scoresheet_version=tenant.get("scoresheet_version", "baseball_quebec"),
+                    integration_version=tenant.get("integration_version"),
+                    integration_config_json=integration_config_str,
                 )
                 session.add(team)
                 session.commit()
@@ -73,6 +79,10 @@ def seed_tenants_and_admins():
                 team.default_league = tenant.get("default_league", team.default_league)
                 team.lineup_print_version = tenant.get("lineup_print_version", team.lineup_print_version)
                 team.scoresheet_version = tenant.get("scoresheet_version", team.scoresheet_version)
+                if "integration_version" in tenant:
+                    team.integration_version = tenant.get("integration_version")
+                if integration_config is not None:
+                    team.integration_config_json = integration_config_str
                 session.add(team)
                 session.commit()
                 session.refresh(team)
@@ -160,6 +170,10 @@ def run_migrations():
             ("team", "lineup_print_version", "ALTER TABLE team ADD COLUMN lineup_print_version TEXT NOT NULL DEFAULT 'baseball_quebec'"),
             ("team", "scoresheet_version", "ALTER TABLE team ADD COLUMN scoresheet_version TEXT NOT NULL DEFAULT 'baseball_quebec'"),
             ("game", "league", "ALTER TABLE game ADD COLUMN league TEXT"),
+            ("game", "external_source", "ALTER TABLE game ADD COLUMN external_source TEXT"),
+            ("game", "external_game_id", "ALTER TABLE game ADD COLUMN external_game_id TEXT"),
+            ("team", "integration_version", "ALTER TABLE team ADD COLUMN integration_version TEXT"),
+            ("team", "integration_config_json", "ALTER TABLE team ADD COLUMN integration_config_json TEXT"),
             ("availability", "injury_inning", "ALTER TABLE availability ADD COLUMN injury_inning INTEGER"),
         ]
         for table, col, sql in migrations:
