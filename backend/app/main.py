@@ -154,6 +154,7 @@ def run_migrations():
             ("player", "coach_type", "ALTER TABLE player ADD COLUMN coach_type TEXT"),
             # Add hbp column to pitchingappearance if missing
             ("pitchingappearance", "hbp", "ALTER TABLE pitchingappearance ADD COLUMN hbp INTEGER NOT NULL DEFAULT 0"),
+            ("team", "language", "ALTER TABLE team ADD COLUMN language TEXT NOT NULL DEFAULT 'fr'"),
             ("team", "division", "ALTER TABLE team ADD COLUMN division TEXT"),
             ("team", "classe", "ALTER TABLE team ADD COLUMN classe TEXT"),
             ("team", "default_league", "ALTER TABLE team ADD COLUMN default_league TEXT"),

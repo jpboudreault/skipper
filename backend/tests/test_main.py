@@ -1,11 +1,43 @@
 import pytest
 from app.models import Player, Team
+from sqlmodel import create_engine, text
+import app.main as main_module
 
 @pytest.mark.asyncio
 async def test_read_root(client):
     response = await client.get("/")
     assert response.status_code == 200
     assert response.json() == {"status": "ok", "message": "Skipper API is running"}
+
+def test_run_migrations_adds_team_language_for_legacy_schema(monkeypatch, tmp_path):
+    legacy_db = tmp_path / "legacy.db"
+    legacy_engine = create_engine(f"sqlite:///{legacy_db}", connect_args={"check_same_thread": False})
+    with legacy_engine.connect() as conn:
+        conn.execute(text("""
+            CREATE TABLE team (
+                id INTEGER PRIMARY KEY,
+                name TEXT NOT NULL,
+                season TEXT NOT NULL,
+                innings_per_game INTEGER NOT NULL,
+                max_pitcher_innings_per_game INTEGER NOT NULL,
+                pitch_count_rules_json TEXT NOT NULL
+            )
+        """))
+        conn.execute(text("""
+            INSERT INTO team (
+                id, name, season, innings_per_game, max_pitcher_innings_per_game, pitch_count_rules_json
+            )
+            VALUES (1, 'Legacy Team', '2026', 6, 2, '{}')
+        """))
+        conn.commit()
+
+    monkeypatch.setattr(main_module, "engine", legacy_engine)
+    main_module.run_migrations()
+
+    with legacy_engine.connect() as conn:
+        language = conn.execute(text("SELECT language FROM team WHERE id = 1")).scalar_one()
+
+    assert language == "fr"
 
 @pytest.mark.asyncio
 async def test_create_player(client):
