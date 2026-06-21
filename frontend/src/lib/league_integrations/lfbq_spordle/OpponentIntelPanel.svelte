@@ -2,7 +2,7 @@
 	import { onMount } from 'svelte';
 	import { apiFetch } from '$lib/api';
 	import { t } from '$lib/i18n';
-	import { formatOpponentMatchup, resultBadgeClass, type HomeAway } from '$lib/games';
+	import { formatOpponentMatchup, formatRecord, resultBadgeClass, type HomeAway } from '$lib/games';
 
 	let { gameId }: { gameId: number } = $props();
 
@@ -10,10 +10,18 @@
 		rank?: number;
 		wins?: number;
 		losses?: number;
+		draws?: number;
 		pct?: number;
 		points?: number;
 		avg_runs_for?: number;
 		avg_runs_against?: number;
+	};
+
+	const resultLabelKeys: Record<string, string> = {
+		win: 'common_win',
+		loss: 'common_loss',
+		tie: 'common_tie',
+		draw: 'common_tie'
 	};
 
 	type RecentGame = {
@@ -73,7 +81,9 @@
 				</div>
 				<div class="stat bg-base-200 rounded-box p-3">
 					<div class="stat-title text-xs">{$t('opponent_intel_record')}</div>
-					<div class="stat-value text-2xl">{intel.standing.wins ?? 0}-{intel.standing.losses ?? 0}</div>
+					<div class="stat-value text-2xl">
+						{formatRecord(intel.standing.wins ?? 0, intel.standing.losses ?? 0, intel.standing.draws ?? 0)}
+					</div>
 				</div>
 				<div class="stat bg-base-200 rounded-box p-3">
 					<div class="stat-title text-xs">{$t('opponent_intel_win_pct')}</div>
@@ -120,7 +130,9 @@
 										<span class="font-mono">{game.score}</span>
 									{/if}
 									{#if game.result}
-										<span class="badge badge-sm {resultBadgeClass(game.result)} uppercase">{game.result}</span>
+										<span class="badge badge-sm {resultBadgeClass(game.result)} uppercase">
+											{$t(resultLabelKeys[game.result] ?? game.result)}
+										</span>
 									{/if}
 								</a>
 							{:else}
@@ -131,7 +143,9 @@
 										<span class="font-mono">{game.score}</span>
 									{/if}
 									{#if game.result}
-										<span class="badge badge-sm {resultBadgeClass(game.result)} uppercase">{game.result}</span>
+										<span class="badge badge-sm {resultBadgeClass(game.result)} uppercase">
+											{$t(resultLabelKeys[game.result] ?? game.result)}
+										</span>
 									{/if}
 								</div>
 							{/if}

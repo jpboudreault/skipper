@@ -10,6 +10,11 @@
     "division": "13U",
     "classe": "B",
     "default_league": "Local League",
+    "standings_points": {
+      "win": 2,
+      "draw": 1,
+      "loss": 0
+    },
     "lineup_print_version": "baseball_quebec",
     "scoresheet_version": "baseball_quebec",
     "pitch_count_rules": {
@@ -44,7 +49,12 @@
       "our_spordle_team_id": 0,
       "page_slug": "your-league-slug",
       "page_id": "00000000-0000-0000-0000-000000000000",
-      "locale": "fr"
+      "locale": "fr",
+      "standings_points": {
+        "win": 2,
+        "draw": 1,
+        "loss": 0
+      }
     },
     "lineup_print_version": "baseball_quebec",
     "scoresheet_version": "baseball_quebec",

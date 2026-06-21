@@ -7,6 +7,7 @@ from typing import Any, Dict, List, Optional
 
 from app.league_integrations.lfbq_spordle.client import SpordleClient
 from app.league_integrations.lfbq_spordle.mapping import resolve_spordle_game
+from app.standings_points import resolve_standings_points, win_pct as standings_win_pct
 from app.league_integrations.registry import register_integration
 from app.models import Game, Team
 
@@ -37,6 +38,14 @@ def _matchup_prefix(home_away: str | None) -> str:
     return "@" if home_away == "A" else "vs"
 
 
+def _is_draw_result(game_result: str | None) -> bool:
+    return game_result in ("draw", "tie")
+
+
+def _format_wld_record(wins: int, losses: int, draws: int) -> str:
+    return f"{wins}-{losses}-{draws}"
+
+
 def _format_recent_game(game: dict, team_id: int) -> dict:
     stat = _stat_for_team(game, team_id)
     opponent_id = game["awayTeamId"] if game["homeTeamId"] == team_id else game["homeTeamId"]
@@ -45,6 +54,8 @@ def _format_recent_game(game: dict, team_id: int) -> dict:
     runs_for = stat.get("goalFor") if stat else None
     runs_against = stat.get("goalAgainst") if stat else None
     result = stat.get("gameResult") if stat else None
+    if _is_draw_result(result):
+        result = "tie"
     return {
         "date": game.get("date"),
         "opponent": opponent_name,
@@ -55,7 +66,8 @@ def _format_recent_game(game: dict, team_id: int) -> dict:
     }
 
 
-def compute_standings(games: List[dict]) -> Dict[int, dict]:
+def compute_standings(games: List[dict], config: dict | None = None) -> Dict[int, dict]:
+    standings_points = resolve_standings_points(config)
     records: Dict[int, dict] = {}
     names: Dict[int, str] = {}
 
@@ -73,12 +85,15 @@ def compute_standings(games: List[dict]) -> Dict[int, dict]:
                 continue
             rec = records.setdefault(
                 team_id,
-                {"wins": 0, "losses": 0, "points": 0, "runs_for": 0, "runs_against": 0},
+                {"wins": 0, "losses": 0, "draws": 0, "points": 0, "runs_for": 0, "runs_against": 0},
             )
-            if stat.get("gameResult") == "win":
+            game_result = stat.get("gameResult")
+            if game_result == "win":
                 rec["wins"] += 1
-            elif stat.get("gameResult") == "loss":
+            elif game_result == "loss":
                 rec["losses"] += 1
+            elif _is_draw_result(game_result):
+                rec["draws"] += 1
             rec["points"] += stat.get("points") or 0
             rec["runs_for"] += stat.get("goalFor") or 0
             rec["runs_against"] += stat.get("goalAgainst") or 0
@@ -88,10 +103,10 @@ def compute_standings(games: List[dict]) -> Dict[int, dict]:
         key=lambda item: (-item[1]["points"], -item[1]["wins"], item[1]["runs_against"]),
     )
     for rank, (team_id, rec) in enumerate(ranked, start=1):
-        played = rec["wins"] + rec["losses"]
+        played = rec["wins"] + rec["losses"] + rec["draws"]
         rec["rank"] = rank
         rec["played"] = played
-        rec["pct"] = round(rec["wins"] / played, 3) if played else 0.0
+        rec["pct"] = standings_win_pct(rec["points"], played, standings_points)
         rec["avg_runs_for"] = round(rec["runs_for"] / played, 1) if played else None
         rec["avg_runs_against"] = round(rec["runs_against"] / played, 1) if played else None
         rec["team_name"] = names.get(team_id)
@@ -170,7 +185,7 @@ def get_opponent_intel_from_data(
 
     opponent_id = away_id if home_id == our_team_id else home_id
     opponent_name = _team_name(spordle_game, opponent_id)
-    standings = compute_standings(schedule_games)
+    standings = compute_standings(schedule_games, config)
     standing = standings.get(opponent_id)
     recent = recent_games_for_team(schedule_games, opponent_id, limit=RECENT_GAMES_LIMIT)
     for row in recent:
@@ -198,7 +213,16 @@ def intel_dashboard_summary(intel: dict) -> dict:
     last = recent[0] if recent else None
     last_result = None
     if last:
-        prefix = "W" if last.get("result") == "win" else "L" if last.get("result") == "loss" else None
+        result = last.get("result")
+        prefix = (
+            "W"
+            if result == "win"
+            else "L"
+            if result == "loss"
+            else "D"
+            if result in ("tie", "draw")
+            else None
+        )
         if prefix and last.get("score"):
             last_result = f"{prefix} {last['score']}"
             if last.get("opponent"):
@@ -206,10 +230,11 @@ def intel_dashboard_summary(intel: dict) -> dict:
 
     wins = standing.get("wins", 0)
     losses = standing.get("losses", 0)
+    draws = standing.get("draws", 0)
     return {
         "available": True,
         "rank": standing.get("rank"),
-        "record": f"{wins}-{losses}",
+        "record": _format_wld_record(wins, losses, draws),
         "runs_per_game": standing.get("avg_runs_for"),
         "last_result": last_result,
     }

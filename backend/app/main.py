@@ -39,9 +39,11 @@ def seed_tenants_and_admins():
             ).first()
             
             pitch_rules_str = json.dumps(tenant.get("pitch_count_rules", {}))
-            integration_config = tenant.get("integration_config")
+            integration_config = dict(tenant.get("integration_config") or {})
+            if tenant.get("standings_points"):
+                integration_config["standings_points"] = tenant["standings_points"]
             integration_config_str = (
-                json.dumps(integration_config) if integration_config is not None else None
+                json.dumps(integration_config) if integration_config else None
             )
             
             if not team:

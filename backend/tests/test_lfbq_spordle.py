@@ -27,12 +27,113 @@ def load_fixture(name: str):
         return json.load(f)
 
 
+def test_compute_standings_with_draw():
+    games = [
+        {
+            "id": 1,
+            "date": "2026-05-01",
+            "homeTeamId": 100,
+            "awayTeamId": 200,
+            "homeTeam": {"id": 100, "name": "HOME"},
+            "awayTeam": {"id": 200, "name": "AWAY"},
+            "teamStats": [
+                {"teamId": 100, "goalFor": 5, "goalAgainst": 5, "gameResult": "draw", "points": 1},
+                {"teamId": 200, "goalFor": 5, "goalAgainst": 5, "gameResult": "draw", "points": 1},
+            ],
+        },
+        {
+            "id": 2,
+            "date": "2026-05-02",
+            "homeTeamId": 100,
+            "awayTeamId": 300,
+            "homeTeam": {"id": 100, "name": "HOME"},
+            "awayTeam": {"id": 300, "name": "OTHER"},
+            "teamStats": [
+                {"teamId": 100, "goalFor": 8, "goalAgainst": 3, "gameResult": "win", "points": 2},
+                {"teamId": 300, "goalFor": 3, "goalAgainst": 8, "gameResult": "loss", "points": 0},
+            ],
+        },
+    ]
+    standings = compute_standings(games)
+    home = standings[100]
+    assert home["wins"] == 1
+    assert home["losses"] == 0
+    assert home["draws"] == 1
+    assert home["points"] == 3
+    assert home["played"] == 2
+    assert home["pct"] == 0.75  # 3 pts / 4 max pts (2 pts per win)
+
+
+def test_compute_standings_custom_points_config():
+    games = [
+        {
+            "id": 1,
+            "date": "2026-05-01",
+            "homeTeamId": 100,
+            "awayTeamId": 200,
+            "homeTeam": {"id": 100, "name": "HOME"},
+            "awayTeam": {"id": 200, "name": "AWAY"},
+            "teamStats": [
+                {"teamId": 100, "goalFor": 5, "goalAgainst": 5, "gameResult": "draw", "points": 1},
+                {"teamId": 200, "goalFor": 5, "goalAgainst": 5, "gameResult": "draw", "points": 1},
+            ],
+        },
+        {
+            "id": 2,
+            "date": "2026-05-02",
+            "homeTeamId": 100,
+            "awayTeamId": 300,
+            "homeTeam": {"id": 100, "name": "HOME"},
+            "awayTeam": {"id": 300, "name": "OTHER"},
+            "teamStats": [
+                {"teamId": 100, "goalFor": 8, "goalAgainst": 3, "gameResult": "win", "points": 3},
+                {"teamId": 300, "goalFor": 3, "goalAgainst": 8, "gameResult": "loss", "points": 0},
+            ],
+        },
+    ]
+    config = {"standings_points": {"win": 3, "draw": 1, "loss": 0}}
+    standings = compute_standings(games, config)
+    home = standings[100]
+    assert home["points"] == 4
+    assert home["pct"] == round(4 / 6, 3)
+
+
+def test_intel_dashboard_summary_draw_last_result():
+    games = load_fixture("schedule_games.json") + [
+        {
+            "id": 999999,
+            "date": "2026-05-26",
+            "homeTeamId": 162670,
+            "awayTeamId": 170000,
+            "homeTeam": {"id": 162670, "name": "RIVAL STARS"},
+            "awayTeam": {"id": 170000, "name": "TIGERS"},
+            "teamStats": [
+                {"teamId": 162670, "goalFor": 6, "goalAgainst": 6, "gameResult": "draw", "points": 1},
+                {"teamId": 170000, "goalFor": 6, "goalAgainst": 6, "gameResult": "draw", "points": 1},
+            ],
+        }
+    ]
+    upcoming = load_fixture("upcoming_game.json")
+    config = {"page_slug": "ligue-feminine-de-baseball-du-quebec", "schedule_id": 193095, "locale": "fr"}
+    intel = get_opponent_intel_from_data(
+        spordle_game=upcoming,
+        schedule_games=games,
+        our_team_id=167495,
+        config=config,
+    )
+    summary = intel_dashboard_summary(intel)
+    assert summary["record"] == "0-3-1"
+    assert summary["last_result"].startswith("D 6-6")
+
+
 def test_compute_standings_and_recent_games():
     games = load_fixture("schedule_games.json")
     standings = compute_standings(games)
     rival = standings[162670]
     assert rival["wins"] == 0
     assert rival["losses"] == 3
+    assert rival["draws"] == 0
+    assert rival["pct"] == 0.0
     assert rival["rank"] >= 1
     assert rival["avg_runs_for"] == round((11 + 5 + 9) / 3, 1)
     assert rival["avg_runs_against"] == round((12 + 10 + 13) / 3, 1)
@@ -89,7 +190,7 @@ def test_intel_dashboard_summary():
     summary = intel_dashboard_summary(intel)
     assert summary["available"] is True
     assert summary["rank"] >= 1
-    assert summary["record"] == "0-3"
+    assert summary["record"] == "0-3-0"
     assert summary["runs_per_game"] == round((11 + 5 + 9) / 3, 1)
     assert summary["last_result"] is not None
     assert summary["last_result"].startswith("L ")
@@ -305,4 +406,4 @@ async def test_dashboard_includes_intel_teaser(client: AsyncClient, session):
     assert len(upcoming) >= 1
     matched = next(g for g in upcoming if g["id"] == game_id)
     assert matched["intel"]["available"] is True
-    assert matched["intel"]["record"] == "0-3"
+    assert matched["intel"]["record"] == "0-3-0"

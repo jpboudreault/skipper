@@ -51,9 +51,14 @@ export function gameResult(
 	return 'tie';
 }
 
-/** DaisyUI badge class for win/loss pills (matches opponent intel styling). */
+/** DaisyUI badge class for win/loss/tie pills (matches opponent intel styling). */
 export function resultBadgeClass(result: GameResult | string | null | undefined): string {
 	if (result === 'win') return 'badge-success';
 	if (result === 'loss') return 'badge-error';
+	if (result === 'tie' || result === 'draw') return 'badge-info';
 	return 'badge-ghost';
+}
+
+export function formatRecord(wins: number, losses: number, draws = 0): string {
+	return `${wins}-${losses}-${draws}`;
 }
