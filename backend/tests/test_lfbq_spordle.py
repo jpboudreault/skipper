@@ -9,6 +9,8 @@ import pytest
 from httpx import AsyncClient
 
 from app.league_integrations.lfbq_spordle.intel import (
+    build_spordle_game_url,
+    build_spordle_team_url,
     compute_standings,
     get_opponent_intel_from_data,
     recent_games_for_team,
@@ -60,8 +62,26 @@ def test_get_opponent_intel_from_data():
     assert intel["standing"]["avg_runs_for"] == round((11 + 5 + 9) / 3, 1)
     assert len(intel["recent_games"]) == 3
     assert intel["recent_games_limit"] == 5
-    assert "spordle.com" in intel["spordle_url"]
-    assert "gameId=900001" in intel["spordle_game_url"]
+    assert intel["spordle_game_url"] == (
+        "https://page.spordle.com/fr/ligue-feminine-de-baseball-du-quebec/schedule/900001"
+    )
+    assert intel["spordle_team_url"] == (
+        "https://page.spordle.com/fr/ligue-feminine-de-baseball-du-quebec/teams/162670"
+    )
+    assert intel["recent_games"][0]["spordle_url"].endswith("/schedule/842370")
+
+
+def test_spordle_page_urls():
+    config = {
+        "page_slug": "ligue-feminine-de-baseball-du-quebec",
+        "locale": "fr",
+    }
+    assert build_spordle_game_url(config, 846892) == (
+        "https://page.spordle.com/fr/ligue-feminine-de-baseball-du-quebec/schedule/846892"
+    )
+    assert build_spordle_team_url(config, 163211) == (
+        "https://page.spordle.com/fr/ligue-feminine-de-baseball-du-quebec/teams/163211"
+    )
 
 
 def test_resolve_spordle_game_by_date():

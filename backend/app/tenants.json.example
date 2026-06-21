@@ -38,6 +38,14 @@
     "division": "15U",
     "classe": "B",
     "default_league": "Local League",
+    "integration_version": "lfbq_spordle",
+    "integration_config": {
+      "schedule_id": 0,
+      "our_spordle_team_id": 0,
+      "page_slug": "your-league-slug",
+      "page_id": "00000000-0000-0000-0000-000000000000",
+      "locale": "fr"
+    },
     "lineup_print_version": "baseball_quebec",
     "scoresheet_version": "baseball_quebec",
     "pitch_count_rules": {

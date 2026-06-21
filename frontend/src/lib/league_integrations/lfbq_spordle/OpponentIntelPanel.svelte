@@ -20,6 +20,7 @@
 		opponent?: string;
 		score?: string;
 		result?: string;
+		spordle_url?: string;
 	};
 
 	type IntelPayload = {
@@ -28,8 +29,8 @@
 		standing?: Standing;
 		recent_games?: RecentGame[];
 		recent_games_limit?: number;
-		spordle_url?: string;
 		spordle_game_url?: string;
+		spordle_team_url?: string;
 		fetched_at?: string;
 	};
 
@@ -108,14 +109,34 @@
 				</div>
 				<ul class="space-y-2">
 					{#each intel.recent_games as game}
-						<li class="flex flex-wrap items-center gap-2 text-sm border border-base-200 rounded-lg px-3 py-2">
-							<span class="text-base-content/60">{game.date}</span>
-							<span class="font-medium">{game.opponent}</span>
-							{#if game.score}
-								<span class="font-mono">{game.score}</span>
-							{/if}
-							{#if game.result}
-								<span class="badge badge-sm {resultBadge(game.result)} uppercase">{game.result}</span>
+						<li class="border border-base-200 rounded-lg px-3 py-2">
+							{#if game.spordle_url}
+								<a
+									href={game.spordle_url}
+									target="_blank"
+									rel="noopener noreferrer"
+									class="flex flex-wrap items-center gap-2 text-sm hover:text-primary"
+								>
+									<span class="text-base-content/60">{game.date}</span>
+									<span class="font-medium">{game.opponent}</span>
+									{#if game.score}
+										<span class="font-mono">{game.score}</span>
+									{/if}
+									{#if game.result}
+										<span class="badge badge-sm {resultBadge(game.result)} uppercase">{game.result}</span>
+									{/if}
+								</a>
+							{:else}
+								<div class="flex flex-wrap items-center gap-2 text-sm">
+									<span class="text-base-content/60">{game.date}</span>
+									<span class="font-medium">{game.opponent}</span>
+									{#if game.score}
+										<span class="font-mono">{game.score}</span>
+									{/if}
+									{#if game.result}
+										<span class="badge badge-sm {resultBadge(game.result)} uppercase">{game.result}</span>
+									{/if}
+								</div>
 							{/if}
 						</li>
 					{/each}
@@ -123,16 +144,16 @@
 			</div>
 		{/if}
 
-		{#if intel.spordle_game_url || intel.spordle_url}
+		{#if intel.spordle_game_url || intel.spordle_team_url}
 			<div class="flex flex-wrap gap-2 pt-2">
 				{#if intel.spordle_game_url}
 					<a href={intel.spordle_game_url} target="_blank" rel="noopener noreferrer" class="btn btn-primary btn-sm">
 						{$t('opponent_intel_view_game_spordle')}
 					</a>
 				{/if}
-				{#if intel.spordle_url}
-					<a href={intel.spordle_url} target="_blank" rel="noopener noreferrer" class="btn btn-outline btn-sm">
-						{$t('opponent_intel_view_spordle')}
+				{#if intel.spordle_team_url}
+					<a href={intel.spordle_team_url} target="_blank" rel="noopener noreferrer" class="btn btn-outline btn-sm">
+						{$t('opponent_intel_view_team_spordle')}
 					</a>
 				{/if}
 			</div>

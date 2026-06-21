@@ -45,6 +45,7 @@ def _format_recent_game(game: dict, team_id: int) -> dict:
         "opponent": opponent_name,
         "score": f"{runs_for}-{runs_against}" if runs_for is not None and runs_against is not None else None,
         "result": result,
+        "spordle_game_id": game.get("id"),
     }
 
 
@@ -108,7 +109,30 @@ def recent_games_for_team(games: List[dict], team_id: int, *, limit: int = 5) ->
 RECENT_GAMES_LIMIT = 5
 
 
+def _page_base(config: dict) -> Optional[str]:
+    page_slug = config.get("page_slug")
+    locale = config.get("locale", "fr")
+    if not page_slug:
+        return None
+    return f"https://page.spordle.com/{locale}/{page_slug}"
+
+
+def build_spordle_game_url(config: dict, game_id: int | str) -> Optional[str]:
+    base = _page_base(config)
+    if not base or game_id is None:
+        return None
+    return f"{base}/schedule/{game_id}"
+
+
+def build_spordle_team_url(config: dict, team_id: int | str) -> Optional[str]:
+    base = _page_base(config)
+    if not base or team_id is None:
+        return None
+    return f"{base}/teams/{team_id}"
+
+
 def build_spordle_schedule_url(config: dict) -> Optional[str]:
+    """Division schedule page (schedule-stats-standings). Used to discover config IDs."""
     page_slug = config.get("page_slug")
     page_id = config.get("page_id")
     schedule_id = config.get("schedule_id")
@@ -119,13 +143,6 @@ def build_spordle_schedule_url(config: dict) -> Optional[str]:
         f"https://page.spordle.com/{locale}/{page_slug}/schedule-stats-standings/"
         f"{page_id}?tab=schedule&scheduleId={schedule_id}"
     )
-
-
-def build_spordle_game_url(config: dict, game_id: int | str) -> Optional[str]:
-    schedule_url = build_spordle_schedule_url(config)
-    if not schedule_url or game_id is None:
-        return schedule_url
-    return f"{schedule_url}&gameId={game_id}"
 
 
 def build_spordle_url(config: dict) -> Optional[str]:
@@ -150,6 +167,8 @@ def get_opponent_intel_from_data(
     standings = compute_standings(schedule_games)
     standing = standings.get(opponent_id)
     recent = recent_games_for_team(schedule_games, opponent_id, limit=RECENT_GAMES_LIMIT)
+    for row in recent:
+        row["spordle_url"] = build_spordle_game_url(config, row.get("spordle_game_id"))
 
     return {
         "available": True,
@@ -157,8 +176,8 @@ def get_opponent_intel_from_data(
         "standing": standing,
         "recent_games": recent,
         "recent_games_limit": RECENT_GAMES_LIMIT,
-        "spordle_url": build_spordle_schedule_url(config),
         "spordle_game_url": build_spordle_game_url(config, spordle_game["id"]),
+        "spordle_team_url": build_spordle_team_url(config, opponent_id),
         "fetched_at": datetime.now(timezone.utc).isoformat(),
     }
 

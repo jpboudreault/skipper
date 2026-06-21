@@ -85,6 +85,10 @@ Lineup printouts and scoresheet photo parsing are **league-specific**. Configure
 
 To add a new league, register a backend prompt in `backend/app/league_formats/` and a frontend print component in `frontend/src/lib/league_formats/`. Existing tenants without these fields keep the Baseball Québec defaults.
 
+### Spordle schedule sync (LFBQ)
+
+To sync games and show opponent intel from Spordle, set `integration_version` and `integration_config` on a tenant. See [`docs/league-integrations.md`](docs/league-integrations.md) for field meanings and how to read them from a Spordle URL.
+
 ## Prerequisites
 
 - Python 3.10+

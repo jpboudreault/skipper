@@ -18,6 +18,7 @@ Deploy **Skipper** to [Fly.io](https://fly.io) as a single unified container (Fa
    cp backend/app/tenants.json.example backend/app/tenants.json
    ```
 2. Edit `backend/app/tenants.json` — set team names, seasons, and `admin_emails` for each team.
+   Optional: enable Spordle sync per team — see [`docs/league-integrations.md`](docs/league-integrations.md).
 3. Only emails listed in `admin_emails` can log in when `DEV_MODE=false`.
 
 ## Step 2: Choose a unique app name

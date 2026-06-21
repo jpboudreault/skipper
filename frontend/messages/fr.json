@@ -152,7 +152,7 @@
   "opponent_intel_recent_games": "Derniers matchs",
   "opponent_intel_recent_games_note": "{count} derniers matchs complétés de la ligue",
   "opponent_intel_view_game_spordle": "Voir ce match sur Spordle",
-  "opponent_intel_view_spordle": "Voir l'horaire complet sur Spordle",
+  "opponent_intel_view_team_spordle": "Voir l'adversaire sur Spordle",
 
   "game_tabs_back_to_games": "← Retour aux matchs",
   "game_tabs_game_number": "Match no {number}",
