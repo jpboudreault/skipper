@@ -33,16 +33,22 @@ def _game_has_result(game: dict) -> bool:
     return len(stats) >= 2 and any(s.get("gameResult") for s in stats)
 
 
+def _matchup_prefix(home_away: str | None) -> str:
+    return "@" if home_away == "A" else "vs"
+
+
 def _format_recent_game(game: dict, team_id: int) -> dict:
     stat = _stat_for_team(game, team_id)
     opponent_id = game["awayTeamId"] if game["homeTeamId"] == team_id else game["homeTeamId"]
     opponent_name = _team_name(game, opponent_id)
+    home_away = "H" if game.get("homeTeamId") == team_id else "A"
     runs_for = stat.get("goalFor") if stat else None
     runs_against = stat.get("goalAgainst") if stat else None
     result = stat.get("gameResult") if stat else None
     return {
         "date": game.get("date"),
         "opponent": opponent_name,
+        "home_away": home_away,
         "score": f"{runs_for}-{runs_against}" if runs_for is not None and runs_against is not None else None,
         "result": result,
         "spordle_game_id": game.get("id"),
@@ -179,6 +185,33 @@ def get_opponent_intel_from_data(
         "spordle_game_url": build_spordle_game_url(config, spordle_game["id"]),
         "spordle_team_url": build_spordle_team_url(config, opponent_id),
         "fetched_at": datetime.now(timezone.utc).isoformat(),
+    }
+
+
+def intel_dashboard_summary(intel: dict) -> dict:
+    """Compact opponent intel for dashboard game cards."""
+    if not intel.get("available"):
+        return {"available": False}
+
+    standing = intel.get("standing") or {}
+    recent = intel.get("recent_games") or []
+    last = recent[0] if recent else None
+    last_result = None
+    if last:
+        prefix = "W" if last.get("result") == "win" else "L" if last.get("result") == "loss" else None
+        if prefix and last.get("score"):
+            last_result = f"{prefix} {last['score']}"
+            if last.get("opponent"):
+                last_result += f" {_matchup_prefix(last.get('home_away'))} {last['opponent']}"
+
+    wins = standing.get("wins", 0)
+    losses = standing.get("losses", 0)
+    return {
+        "available": True,
+        "rank": standing.get("rank"),
+        "record": f"{wins}-{losses}",
+        "runs_per_game": standing.get("avg_runs_for"),
+        "last_result": last_result,
     }
 
 

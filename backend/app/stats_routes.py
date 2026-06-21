@@ -41,6 +41,17 @@ from datetime import date
 from sqlmodel import or_, select
 from app.models import Game, Team
 
+def _serialize_upcoming_games(games: List[Game], team: Team) -> List[dict]:
+    from app.league_integrations import get_opponent_intel
+    from app.league_integrations.lfbq_spordle.intel import intel_dashboard_summary
+
+    result = []
+    for game in games:
+        payload = game.model_dump()
+        payload["intel"] = intel_dashboard_summary(get_opponent_intel(game, team))
+        result.append(payload)
+    return result
+
 @router.get("/dashboard")
 def team_dashboard(team_id: int, session: Session = Depends(get_session), current_user: User = Depends(get_current_user)) -> Dict[str, Any]:
     current_user = session.get(User, current_user.id)
@@ -91,7 +102,26 @@ def team_dashboard(team_id: int, session: Session = Depends(get_session), curren
     return {
         "team_name": team_name,
         "last_game": last_game,
-        "upcoming_games": upcoming_games,
+        "upcoming_games": _serialize_upcoming_games(upcoming_games, team),
         "recent_batting": recent_batting,
         "recent_pitching": recent_pitching
     }
+
+
+@router.post("/dashboard/warmup")
+def dashboard_warmup(
+    team_id: int,
+    session: Session = Depends(get_session),
+    current_user: User = Depends(get_current_user),
+) -> Dict[str, Any]:
+    current_user = session.get(User, current_user.id)
+    if team_id not in {t.id for t in current_user.teams}:
+        raise_api_error(403, "not_authorized_for_team")
+
+    team = session.get(Team, team_id)
+    if team is None:
+        raise_api_error(404, "team_not_found")
+
+    from app.league_integrations.warmup import warmup_dashboard
+
+    return warmup_dashboard(session, team)

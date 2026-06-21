@@ -2,6 +2,7 @@
 	import { onMount } from 'svelte';
 	import { apiFetch } from '$lib/api';
 	import { t, translate, formatLocaleDate } from '$lib/i18n';
+	import { formatOpponentMatchup } from '$lib/games';
 
 	let dashboardData: any = $state(null);
 	let loading = $state(true);
@@ -13,8 +14,20 @@
 		day: 'numeric'
 	};
 
+	const WARMUP_THROTTLE_MS = 6 * 60 * 60 * 1000;
+
+	function shouldWarmup(teamId: string): boolean {
+		const raw = sessionStorage.getItem(`dashboardWarmup:${teamId}`);
+		if (!raw) return true;
+		const last = parseInt(raw, 10);
+		return Number.isNaN(last) || Date.now() - last > WARMUP_THROTTLE_MS;
+	}
+
+	function markWarmedUp(teamId: string) {
+		sessionStorage.setItem(`dashboardWarmup:${teamId}`, String(Date.now()));
+	}
+
 	onMount(async () => {
-		// Wait a tiny bit for layout to set activeTeamId if needed
 		setTimeout(async () => {
 			const teamId = sessionStorage.getItem('activeTeamId');
 			if (!teamId) {
@@ -23,6 +36,11 @@
 			}
 
 			try {
+				if (shouldWarmup(teamId)) {
+					await apiFetch(`/teams/${teamId}/stats/dashboard/warmup`, { method: 'POST' });
+					markWarmedUp(teamId);
+				}
+
 				const res = await apiFetch(`/teams/${teamId}/stats/dashboard`);
 				if (res.ok) {
 					dashboardData = await res.json();
@@ -112,16 +130,25 @@
 											<span class="font-bold">{formatLocaleDate(game.date, dateFormatOptions)}</span>
 											<span class="badge badge-sm {game.home_away === 'H' ? 'badge-neutral' : 'badge-outline'}">{game.home_away === 'H' ? $t('common_home') : $t('common_away')}</span>
 										</div>
-										<div class="text-lg font-bold mb-3">{$t('dashboard_vs')} {game.opponent || $t('dashboard_tbd')}</div>
-										<div class="flex gap-2">
-											<a href="/games/{game.id}/lineup" class="btn btn-primary btn-sm flex-1">{$t('dashboard_lineup')}</a>
-											<a href="/games/{game.id}/availability" class="btn btn-outline btn-sm flex-1">{$t('dashboard_availabilities')}</a>
+										<a href="/games/{game.id}" class="text-lg font-bold mb-3 block hover:text-primary transition-colors">
+											{formatOpponentMatchup(game.home_away, game.opponent, {
+												vsLabel: $t('dashboard_vs'),
+												tbd: $t('dashboard_tbd')
+											})}
+											{#if game.intel?.available && game.intel.record}
+												<span class="ml-1 text-base-content/70 font-semibold">({game.intel.record})</span>
+											{/if}
+										</a>
+										<div class="flex flex-wrap gap-2">
+											<a href="/games/{game.id}" class="btn btn-primary btn-sm flex-1 min-w-[5.5rem]">{$t('dashboard_overview')}</a>
+											<a href="/games/{game.id}/lineup" class="btn btn-outline btn-sm flex-1 min-w-[5.5rem]">{$t('dashboard_lineup')}</a>
+											<a href="/games/{game.id}/availability" class="btn btn-outline btn-sm flex-1 min-w-[5.5rem]">{$t('dashboard_availabilities')}</a>
 										</div>
 									</div>
 								{/each}
 							</div>
 							<div class="mt-4 text-center">
-								<a href="/games" class="text-primary text-sm font-semibold hover:underline">{$t('dashboard_view_all_games')}</a>
+								<a href="/games?tab=upcoming" class="text-primary text-sm font-semibold hover:underline">{$t('dashboard_view_all_games')}</a>
 							</div>
 						{:else}
 							<p class="text-base-content/50 italic">{$t('dashboard_no_upcoming')}</p>

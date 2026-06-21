@@ -3,18 +3,25 @@
 	import { goto } from '$app/navigation';
 	import { page } from '$app/stores';
 	import { apiFetch } from '$lib/api';
-	import { t, translate } from '$lib/i18n';
+	import { t, translate, formatLocaleDate } from '$lib/i18n';
+	import {
+		formatOpponentMatchup,
+		splitGames,
+		gameResult,
+		resultBadgeClass
+	} from '$lib/games';
 
 	let { data } = $props();
 	const token = $derived(data.user?.token);
 
 	let games: any[] = $state([]);
+	let intelByGameId: Record<number, any> = $state({});
 	let loading = $state(true);
 	let syncing = $state(false);
 	let syncMessage = $state('');
 	let showCreate = $state(false);
 	let teams: any[] = $state([]);
-	let activeTab = $state('schedule');
+	let activeTab = $state('upcoming');
 	let pitchingPlanData: any = $state(null);
 	let loadingPitching = $state(false);
 	let newGame = $state({
@@ -41,9 +48,57 @@
 		develop: 'games_mode_develop'
 	};
 
+	const dateFormatOptions: Intl.DateTimeFormatOptions = {
+		weekday: 'short',
+		month: 'short',
+		day: 'numeric'
+	};
+
+	const resultLabelKeys: Record<string, string> = {
+		win: 'common_win',
+		loss: 'common_loss',
+		tie: 'common_tie'
+	};
+
 	let activeTeam = $derived(
 		teams.find((t: any) => t.id.toString() === sessionStorage.getItem('activeTeamId')) ?? teams[0] ?? null
 	);
+
+	let { upcoming, past } = $derived(splitGames(games));
+	let nextGame = $derived(upcoming[0] ?? null);
+	let laterUpcoming = $derived(upcoming.slice(1));
+
+	function setActiveTab(tab: string) {
+		activeTab = tab;
+		const url = new URL($page.url);
+		if (tab === 'upcoming') {
+			url.searchParams.delete('tab');
+		} else {
+			url.searchParams.set('tab', tab);
+		}
+		goto(url.pathname + url.search, { replaceState: true, keepFocus: true, noScroll: true });
+	}
+
+	function intelForGame(gameId: number) {
+		return intelByGameId[gameId] ?? null;
+	}
+
+	async function fetchUpcomingIntel() {
+		const activeId = sessionStorage.getItem('activeTeamId');
+		if (!activeId) return;
+		try {
+			const res = await apiFetch(`/teams/${activeId}/stats/dashboard`);
+			if (!res.ok) return;
+			const dashboard = await res.json();
+			const map: Record<number, any> = {};
+			for (const game of dashboard.upcoming_games ?? []) {
+				if (game.id != null) map[game.id] = game.intel;
+			}
+			intelByGameId = map;
+		} catch (e) {
+			console.error(e);
+		}
+	}
 
 	async function fetchData() {
 		try {
@@ -57,6 +112,7 @@
 					newGame.league = activeTeam.default_league || '';
 				}
 			}
+			await fetchUpcomingIntel();
 		} catch (e) {
 			console.error(e);
 		} finally {
@@ -65,8 +121,12 @@
 	}
 
 	onMount(() => {
+		const tab = $page.url.searchParams.get('tab');
+		if (tab === 'pitching-plan' || tab === 'past' || tab === 'upcoming') {
+			activeTab = tab;
+		}
 		fetchData();
-		if ($page.url.searchParams.get('tab') === 'pitching-plan') {
+		if (tab === 'pitching-plan') {
 			fetchPitchingPlan();
 		}
 	});
@@ -113,20 +173,8 @@
 		}
 	}
 
-	async function deleteGame(id: number) {
-		if (!confirm(translate('games_delete_game_confirm'))) return;
-		try {
-			await apiFetch(`/games/${id}`, {
-				method: 'DELETE'
-			});
-			games = games.filter((g) => g.id !== id);
-		} catch (e) {
-			console.error(e);
-		}
-	}
-
 	async function fetchPitchingPlan() {
-		activeTab = 'pitching-plan';
+		setActiveTab('pitching-plan');
 		if (pitchingPlanData) return;
 
 		loadingPitching = true;
@@ -145,6 +193,62 @@
 	}
 </script>
 
+{#snippet upcomingGameCard(game: any, hero = false)}
+	{@const intel = intelForGame(game.id)}
+	<div
+		class="{hero
+			? 'bg-primary/5 border-2 border-primary shadow-lg'
+			: 'bg-base-200/50 border-base-200'} rounded-lg border p-4"
+	>
+		<div class="mb-2 flex flex-wrap items-center justify-between gap-2">
+			<div class="flex flex-wrap items-center gap-2">
+				{#if hero}
+					<span class="badge badge-primary badge-sm uppercase">{$t('games_next_game')}</span>
+				{/if}
+				<span class="font-bold {hero ? 'text-lg' : ''}"
+					>{formatLocaleDate(game.date, dateFormatOptions)}</span
+				>
+				{#if game.game_number}
+					<span class="text-base-content/60 text-sm">#{game.game_number}</span>
+				{/if}
+			</div>
+			<span
+				class="badge badge-sm {game.home_away === 'H' ? 'badge-neutral' : 'badge-outline'}"
+				>{game.home_away === 'H' ? $t('common_home') : $t('common_away')}</span
+			>
+		</div>
+		<a
+			href="/games/{game.id}"
+			class="mb-3 block font-bold hover:text-primary transition-colors {hero ? 'text-2xl' : 'text-lg'}"
+		>
+			{formatOpponentMatchup(game.home_away, game.opponent, {
+				vsLabel: $t('dashboard_vs'),
+				tbd: $t('dashboard_tbd')
+			})}
+			{#if intel?.available && intel.record}
+				<span class="text-base-content/70 ml-1 font-semibold {hero ? 'text-xl' : ''}"
+					>({intel.record})</span
+				>
+			{/if}
+		</a>
+		<div class="flex flex-wrap gap-2">
+			<a
+				href="/games/{game.id}"
+				class="btn btn-primary btn-sm min-w-[5.5rem] flex-1 {hero ? 'btn-md' : ''}"
+				>{$t('dashboard_overview')}</a
+			>
+			<a href="/games/{game.id}/lineup" class="btn btn-outline btn-sm min-w-[5.5rem] flex-1 {hero ? 'btn-md' : ''}"
+				>{$t('dashboard_lineup')}</a
+			>
+			<a
+				href="/games/{game.id}/availability"
+				class="btn btn-outline btn-sm min-w-[5.5rem] flex-1 {hero ? 'btn-md' : ''}"
+				>{$t('dashboard_availabilities')}</a
+			>
+		</div>
+	</div>
+{/snippet}
+
 <div class="mx-auto max-w-7xl px-4 py-8 sm:px-6 lg:px-8">
 	<div class="mb-6 sm:flex sm:items-center sm:justify-between">
 		<div>
@@ -153,36 +257,50 @@
 				{$t('games_description')}
 			</p>
 		</div>
-		<div class="flex flex-wrap gap-2 mt-4 sm:mt-0">
-		<button
-			onclick={() => (showCreate = !showCreate)}
-			class="btn {showCreate ? 'btn-neutral' : 'btn-primary'} shadow-md"
-		>
-			{showCreate ? $t('games_cancel') : $t('games_new_game')}
-		</button>
-		{#if activeTeam?.integration_version}
+		<div class="mt-4 flex flex-wrap gap-2 sm:mt-0">
 			<button
-				onclick={syncSchedule}
-				class="btn btn-outline btn-secondary shadow-md"
-				disabled={syncing}
+				onclick={() => (showCreate = !showCreate)}
+				class="btn {showCreate ? 'btn-neutral' : 'btn-primary'} shadow-md"
 			>
-				{syncing ? $t('games_syncing') : $t('games_sync_schedule')}
+				{showCreate ? $t('games_cancel') : $t('games_new_game')}
 			</button>
-		{/if}
+			{#if activeTeam?.integration_version}
+				<button
+					onclick={syncSchedule}
+					class="btn btn-outline btn-secondary shadow-md"
+					disabled={syncing}
+				>
+					{syncing ? $t('games_syncing') : $t('games_sync_schedule')}
+				</button>
+			{/if}
 		</div>
 	</div>
 	{#if syncMessage}
-		<p class="text-sm text-base-content/70 mb-4">{syncMessage}</p>
+		<p class="text-base-content/70 mb-4 text-sm">{syncMessage}</p>
 	{/if}
 
-	<div class="tabs tabs-boxed bg-base-100 border-base-300 mb-6 max-w-md border p-1 shadow-sm">
+	<div class="tabs tabs-boxed bg-base-100 border-base-300 mb-6 max-w-lg border p-1 shadow-sm">
 		<button
-			class="tab tab-sm sm:tab-md {activeTab === 'schedule'
+			class="tab tab-sm sm:tab-md {activeTab === 'upcoming'
 				? 'tab-active text-primary font-bold'
 				: 'text-base-content/60'}"
-			onclick={() => (activeTab = 'schedule')}
+			onclick={() => setActiveTab('upcoming')}
 		>
-			{$t('games_schedule')}
+			{$t('games_upcoming')}
+			{#if !loading && upcoming.length > 0}
+				<span class="badge badge-xs badge-primary ml-1">{upcoming.length}</span>
+			{/if}
+		</button>
+		<button
+			class="tab tab-sm sm:tab-md {activeTab === 'past'
+				? 'tab-active text-primary font-bold'
+				: 'text-base-content/60'}"
+			onclick={() => setActiveTab('past')}
+		>
+			{$t('games_past')}
+			{#if !loading && past.length > 0}
+				<span class="badge badge-xs badge-neutral ml-1">{past.length}</span>
+			{/if}
 		</button>
 		<button
 			class="tab tab-sm sm:tab-md {activeTab === 'pitching-plan'
@@ -194,7 +312,7 @@
 		</button>
 	</div>
 
-	{#if activeTab === 'schedule'}
+	{#if activeTab === 'upcoming'}
 		{#if showCreate}
 			<div class="card bg-base-100 border-base-300 mb-8 border p-6 shadow-xl">
 				<h3 class="text-base-content mb-4 text-lg font-bold">{$t('games_create_new_game')}</h3>
@@ -209,7 +327,9 @@
 						/>
 					</div>
 					<div class="form-control">
-						<label for="game_number" class="label"><span class="label-text">{$t('games_game_number')}</span></label>
+						<label for="game_number" class="label"
+							><span class="label-text">{$t('games_game_number')}</span></label
+						>
 						<input
 							id="game_number"
 							type="text"
@@ -219,7 +339,9 @@
 						/>
 					</div>
 					<div class="form-control">
-						<label for="opponent" class="label"><span class="label-text">{$t('games_opponent')}</span></label>
+						<label for="opponent" class="label"
+							><span class="label-text">{$t('games_opponent')}</span></label
+						>
 						<input
 							id="opponent"
 							type="text"
@@ -239,7 +361,9 @@
 						/>
 					</div>
 					<div class="form-control">
-						<label for="home_away" class="label"><span class="label-text">{$t('games_home_away')}</span></label>
+						<label for="home_away" class="label"
+							><span class="label-text">{$t('games_home_away')}</span></label
+						>
 						<select
 							id="home_away"
 							bind:value={newGame.home_away}
@@ -250,7 +374,9 @@
 						</select>
 					</div>
 					<div class="form-control">
-						<label for="mode" class="label"><span class="label-text">{$t('games_optimizer_mode')}</span></label>
+						<label for="mode" class="label"
+							><span class="label-text">{$t('games_optimizer_mode')}</span></label
+						>
 						<select
 							id="mode"
 							bind:value={newGame.mode}
@@ -261,7 +387,9 @@
 						</select>
 					</div>
 					<div class="form-control">
-						<label for="game_type" class="label"><span class="label-text">{$t('games_game_type')}</span></label>
+						<label for="game_type" class="label"
+							><span class="label-text">{$t('games_game_type')}</span></label
+						>
 						<select
 							id="game_type"
 							bind:value={newGame.game_type}
@@ -289,15 +417,37 @@
 			</div>
 		{/if}
 
+		<div class="card bg-base-100 border-base-300 border p-6 shadow-xl">
+			{#if loading}
+				<div class="py-16 text-center">
+					<span class="loading loading-spinner loading-lg text-primary"></span>
+					<p class="text-base-content/60 mt-2 text-sm">{$t('games_loading_games')}</p>
+				</div>
+			{:else if upcoming.length === 0}
+				<div class="text-base-content/60 py-16 text-center">
+					<p class="text-lg">{$t('games_no_upcoming')}</p>
+				</div>
+			{:else}
+				<div class="space-y-4">
+					{@render upcomingGameCard(nextGame, true)}
+					{#each laterUpcoming as game}
+						{@render upcomingGameCard(game)}
+					{/each}
+				</div>
+			{/if}
+		</div>
+	{/if}
+
+	{#if activeTab === 'past'}
 		<div class="card bg-base-100 border-base-300 overflow-hidden border shadow-xl">
 			{#if loading}
 				<div class="p-16 text-center">
 					<span class="loading loading-spinner loading-lg text-primary"></span>
 					<p class="text-base-content/60 mt-2 text-sm">{$t('games_loading_games')}</p>
 				</div>
-			{:else if games.length === 0}
+			{:else if past.length === 0}
 				<div class="text-base-content/60 py-16 text-center">
-					<p class="text-lg">{$t('games_no_games')}</p>
+					<p class="text-lg">{$t('games_no_past')}</p>
 				</div>
 			{:else}
 				<div class="overflow-x-auto">
@@ -310,18 +460,24 @@
 								<th class="text-base-content w-20 font-bold">{$t('games_home_away')}</th>
 								<th class="text-base-content font-bold">{$t('games_details')}</th>
 								<th class="text-base-content w-32 font-bold">{$t('games_score')}</th>
-								<th class="text-base-content w-24 text-right font-bold">{$t('common_actions')}</th>
+								<th class="text-base-content w-24 font-bold">{$t('games_result')}</th>
 							</tr>
 						</thead>
 						<tbody>
-							{#each games as game}
+							{#each past as game}
+								{@const result = gameResult(game.result_runs_for, game.result_runs_against)}
 								<tr
 									class="hover:bg-base-200/50 cursor-pointer transition"
 									onclick={() => goto(`/games/${game.id}`)}
 								>
 									<td class="text-base-content font-medium">{game.date}</td>
 									<td class="text-base-content text-center">{game.game_number || '—'}</td>
-									<td class="text-base-content">{game.opponent || '—'}</td>
+									<td class="text-base-content"
+										>{formatOpponentMatchup(game.home_away, game.opponent, {
+											vsLabel: $t('dashboard_vs'),
+											tbd: '—'
+										})}</td
+									>
 									<td class="text-base-content">{game.home_away || '—'}</td>
 									<td>
 										<span
@@ -344,14 +500,14 @@
 											<span class="text-base-content/50">—</span>
 										{/if}
 									</td>
-									<td class="text-right">
-										<button
-											onclick={(e) => {
-												e.stopPropagation();
-												deleteGame(game.id);
-											}}
-											class="btn btn-ghost btn-error btn-xs">{$t('common_delete')}</button
-										>
+									<td>
+										{#if result}
+											<span class="badge badge-sm {resultBadgeClass(result)} uppercase"
+												>{$t(resultLabelKeys[result])}</span
+											>
+										{:else}
+											<span class="text-base-content/50">—</span>
+										{/if}
 									</td>
 								</tr>
 							{/each}
@@ -390,8 +546,17 @@
 												timeZone: 'UTC'
 											})}
 										</div>
-										<div class="mx-auto max-w-[100px] truncate" title={game.opponent}>
-											{game.opponent || $t('dashboard_tbd')}
+										<div
+											class="mx-auto max-w-[100px] truncate"
+											title={formatOpponentMatchup(game.home_away, game.opponent, {
+												vsLabel: $t('dashboard_vs'),
+												tbd: $t('dashboard_tbd')
+											})}
+										>
+											{formatOpponentMatchup(game.home_away, game.opponent, {
+												vsLabel: $t('dashboard_vs'),
+												tbd: $t('dashboard_tbd')
+											})}
 										</div>
 									</th>
 								{/each}

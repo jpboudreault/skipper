@@ -1,8 +1,9 @@
 <script lang="ts">
 	import { page } from '$app/stores';
+	import { goto } from '$app/navigation';
 	import { onMount } from 'svelte';
 	import { apiFetch } from '$lib/api';
-	import { t } from '$lib/i18n';
+	import { t, translate } from '$lib/i18n';
 	import { getOpponentIntelComponent } from '$lib/league_integrations';
 
 	let game: any = $state(null);
@@ -41,6 +42,18 @@
 		if (res.ok) {
 			game = await res.json();
 			editing = false;
+		}
+	}
+
+	async function deleteGame() {
+		if (!game || !confirm(translate('games_delete_game_confirm'))) return;
+		try {
+			const res = await apiFetch(`/games/${game.id}`, { method: 'DELETE' });
+			if (res.ok) {
+				goto('/games?tab=past');
+			}
+		} catch (e) {
+			console.error(e);
 		}
 	}
 </script>
@@ -164,6 +177,7 @@
 				<button onclick={saveGame} class="btn btn-success btn-sm">{$t('common_save')}</button>
 				<button onclick={() => { editing = false; fetchGame(); }} class="btn btn-neutral btn-sm">{$t('common_cancel')}</button>
 			{:else}
+				<button onclick={deleteGame} class="btn btn-ghost btn-error btn-sm">{$t('common_delete')}</button>
 				<button onclick={() => editing = true} class="btn btn-primary btn-sm px-6">{$t('common_edit')}</button>
 			{/if}
 		</div>

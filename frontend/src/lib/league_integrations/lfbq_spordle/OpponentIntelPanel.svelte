@@ -2,6 +2,7 @@
 	import { onMount } from 'svelte';
 	import { apiFetch } from '$lib/api';
 	import { t } from '$lib/i18n';
+	import { formatOpponentMatchup, resultBadgeClass, type HomeAway } from '$lib/games';
 
 	let { gameId }: { gameId: number } = $props();
 
@@ -18,6 +19,7 @@
 	type RecentGame = {
 		date?: string;
 		opponent?: string;
+		home_away?: HomeAway;
 		score?: string;
 		result?: string;
 		spordle_url?: string;
@@ -50,11 +52,6 @@
 		}
 	});
 
-	function resultBadge(result?: string) {
-		if (result === 'win') return 'badge-success';
-		if (result === 'loss') return 'badge-error';
-		return 'badge-ghost';
-	}
 </script>
 
 {#if loading}
@@ -118,23 +115,23 @@
 									class="flex flex-wrap items-center gap-2 text-sm hover:text-primary"
 								>
 									<span class="text-base-content/60">{game.date}</span>
-									<span class="font-medium">{game.opponent}</span>
+									<span class="font-medium">{formatOpponentMatchup(game.home_away, game.opponent, { vsLabel: $t('dashboard_vs') })}</span>
 									{#if game.score}
 										<span class="font-mono">{game.score}</span>
 									{/if}
 									{#if game.result}
-										<span class="badge badge-sm {resultBadge(game.result)} uppercase">{game.result}</span>
+										<span class="badge badge-sm {resultBadgeClass(game.result)} uppercase">{game.result}</span>
 									{/if}
 								</a>
 							{:else}
 								<div class="flex flex-wrap items-center gap-2 text-sm">
 									<span class="text-base-content/60">{game.date}</span>
-									<span class="font-medium">{game.opponent}</span>
+									<span class="font-medium">{formatOpponentMatchup(game.home_away, game.opponent, { vsLabel: $t('dashboard_vs') })}</span>
 									{#if game.score}
 										<span class="font-mono">{game.score}</span>
 									{/if}
 									{#if game.result}
-										<span class="badge badge-sm {resultBadge(game.result)} uppercase">{game.result}</span>
+										<span class="badge badge-sm {resultBadgeClass(game.result)} uppercase">{game.result}</span>
 									{/if}
 								</div>
 							{/if}
