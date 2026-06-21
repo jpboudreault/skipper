@@ -105,8 +105,8 @@ cp backend/app/tenants.json.example backend/app/tenants.json
 ```
 
 Edit `backend/.env`:
-- Set `GOOGLE_CLIENT_ID` from the [Google Cloud Console](https://console.cloud.google.com)
-- Add `http://localhost:5173` to **Authorized JavaScript Origins** for your OAuth client
+- Set `GOOGLE_CLIENT_ID` from the [Google Cloud Console](https://console.cloud.google.com) and/or `MICROSOFT_CLIENT_ID` from [Azure Portal](https://portal.azure.com) (at least one is required for login)
+- Add `http://localhost:5173` to **Authorized JavaScript Origins** (Google) and `http://localhost:5173/auth/callback/microsoft` to **SPA redirect URIs** (Microsoft)
 - Keep `DEV_MODE=true` for local development (auto-provisions users on first login)
 - Optional: set `SKIPPER_LOCALE=en` or `SKIPPER_LOCALE=fr` to lock the app to one language (also set the same variable when running the frontend dev server, or add it to `frontend/.env`)
 

@@ -14,11 +14,12 @@
 
   "login_subtitle": "Connectez-vous pour gérer l'horaire et l'effectif de votre équipe",
   "login_authentication": "Authentification",
-  "login_verifying": "Vérification avec Google...",
+  "login_verifying": "Vérification...",
   "login_login_successful": "Connexion réussie!",
   "login_redirecting": "Redirection vers votre tableau de bord...",
+  "login_continue_with_microsoft": "Se connecter avec Microsoft",
   "login_config_missing": "Configuration manquante",
-  "login_config_missing_detail": "La connexion Google n'est pas configurée. Veuillez définir la variable d'environnement GOOGLE_CLIENT_ID sur votre serveur (Fly.io / .env local) pour activer la connexion.",
+  "login_config_missing_detail": "La connexion n'est pas configurée. Définissez GOOGLE_CLIENT_ID et/ou MICROSOFT_CLIENT_ID sur votre serveur (Fly.io / .env local) pour activer la connexion.",
 
   "common_save": "Enregistrer",
   "common_cancel": "Annuler",

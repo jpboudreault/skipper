@@ -14,11 +14,12 @@
 
   "login_subtitle": "Sign in to manage your team schedule & roster",
   "login_authentication": "Authentication",
-  "login_verifying": "Verifying with Google...",
+  "login_verifying": "Verifying...",
   "login_login_successful": "Login Successful!",
   "login_redirecting": "Redirecting to your dashboard...",
+  "login_continue_with_microsoft": "Sign in with Microsoft",
   "login_config_missing": "Configuration Missing",
-  "login_config_missing_detail": "Google Sign-In is not configured yet. Please configure the GOOGLE_CLIENT_ID environment variable on your server (Fly.io / local .env) to enable login.",
+  "login_config_missing_detail": "Sign-in is not configured yet. Set GOOGLE_CLIENT_ID and/or MICROSOFT_CLIENT_ID on your server (Fly.io / local .env) to enable login.",
 
   "common_save": "Save",
   "common_cancel": "Cancel",

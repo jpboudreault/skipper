@@ -7,7 +7,8 @@ Deploy **Skipper** to [Fly.io](https://fly.io) as a single unified container (Fa
 ## Prerequisites
 
 - [Fly.io account](https://fly.io)
-- [Google Cloud Console](https://console.cloud.google.com) OAuth 2.0 Web Client ID
+- [Google Cloud Console](https://console.cloud.google.com) OAuth 2.0 Web Client ID (optional)
+- [Azure Portal](https://portal.azure.com) App registration for Microsoft Sign-In (optional — at least one provider required)
 
 ---
 
@@ -53,11 +54,14 @@ fly volumes create skipper_data --region yyz --size 1 --app your-unique-app-name
 fly secrets set \
   JWT_SECRET="$(openssl rand -hex 32)" \
   GOOGLE_CLIENT_ID="your_google_client_id" \
+  MICROSOFT_CLIENT_ID="your_microsoft_client_id" \
   DEV_MODE="false" \
   --app your-unique-app-name
 ```
 
 In Google Cloud Console, add your production URL (e.g. `https://your-unique-app-name.fly.dev`) to **Authorized JavaScript Origins**.
+
+In Azure Portal → your app → **Authentication**, add your production callback URL as a **Single-page application** redirect URI (e.g. `https://your-unique-app-name.fly.dev/auth/callback/microsoft`). Enable **Accounts in any organizational directory and personal Microsoft accounts** so Hotmail/Outlook users can sign in.
 
 Optional — scoresheet photo ingestion:
 ```bash
@@ -142,6 +146,7 @@ fly ssh console --app your-unique-app-name
 | Variable | Local (`DEV_MODE=true`) | Production |
 |----------|-------------------------|------------|
 | `JWT_SECRET` | Optional (default ok) | **Required** — use `openssl rand -hex 32` |
-| `GOOGLE_CLIENT_ID` | Required for login | Required for login |
+| `GOOGLE_CLIENT_ID` | Required for Google login | Optional — Google login |
+| `MICROSOFT_CLIENT_ID` | Required for Microsoft login | Optional — Microsoft login |
 | `DEV_MODE` | `true` — auto-creates users | `false` — only `tenants.json` emails allowed |
 | `FLY_APP_NAME` | Used by `deploy.sh` and `backup_db.sh` | Used by `deploy.sh` and `backup_db.sh` |

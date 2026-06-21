@@ -7,7 +7,7 @@ from typing import List
 from pydantic import BaseModel
 import os
 from dotenv import load_dotenv
-from app.auth import verify_google_token, create_access_token, get_current_user, get_active_team
+from app.auth import verify_google_token, verify_microsoft_token, login_user_by_email, get_current_user, get_active_team
 from app.i18n.errors import raise_api_error
 from datetime import datetime, timedelta
 
@@ -212,9 +212,11 @@ def read_config():
     key = os.environ.get("ANTHROPIC_API_KEY")
     is_valid = bool(key and key.strip() and "your_anthropic_api" not in key)
     google_id = os.environ.get("GOOGLE_CLIENT_ID", "")
+    microsoft_id = os.environ.get("MICROSOFT_CLIENT_ID", "")
     return {
         "photo_ingestion_enabled": is_valid,
-        "google_client_id": google_id
+        "google_client_id": google_id,
+        "microsoft_client_id": microsoft_id,
     }
 
 @app.get("/")
@@ -311,39 +313,23 @@ def update_position_score(player_id: int, position: int, score_update: PositionS
 class GoogleLoginRequest(BaseModel):
     credential: str
 
+class MicrosoftLoginRequest(BaseModel):
+    id_token: str
+
 @app.post("/api/auth/google")
 def google_login(request: GoogleLoginRequest, session: Session = Depends(get_session)):
     idinfo = verify_google_token(request.credential)
     email = idinfo.get("email")
     if not email:
         raise_api_error(400, "google_email_missing")
-        
-    email_lower = email.strip().lower()
-    user = session.exec(select(User).where(User.email == email_lower)).first()
-    is_dev = os.environ.get("DEV_MODE", "true").lower() == "true"
-    
-    if not user:
-        if is_dev:
-            print(f"DEV MODE: Automatically creating user for '{email_lower}' via Google")
-            user = User(email=email_lower, is_active=True)
-            session.add(user)
-            session.commit()
-            session.refresh(user)
-            
-            # Automatically link newly created dev user to all existing teams
-            from app.models import UserTeamLink
-            teams = session.exec(select(Team)).all()
-            for t in teams:
-                link = UserTeamLink(user_id=user.id, team_id=t.id)
-                session.add(link)
-            session.commit()
-            session.refresh(user)
-        else:
-            print(f"DEBUG LOGIN: Google email '{email_lower}' not found in database.")
-            raise_api_error(401, "email_not_authorized")
-            
-    # Valid user, generate JWT
-    access_token = create_access_token(data={"sub": user.email, "user_id": user.id})
-    return {"access_token": access_token, "token_type": "bearer"}
+    return login_user_by_email(email, "Google", session)
+
+@app.post("/api/auth/microsoft")
+def microsoft_login(request: MicrosoftLoginRequest, session: Session = Depends(get_session)):
+    payload = verify_microsoft_token(request.id_token)
+    email = payload.get("email") or payload.get("preferred_username")
+    if not email:
+        raise_api_error(400, "microsoft_email_missing")
+    return login_user_by_email(email, "Microsoft", session)
 
 
