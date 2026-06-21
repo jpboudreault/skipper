@@ -31,6 +31,8 @@ def test_compute_standings_and_recent_games():
     assert rival["wins"] == 0
     assert rival["losses"] == 3
     assert rival["rank"] >= 1
+    assert rival["avg_runs_for"] == round((11 + 5 + 9) / 3, 1)
+    assert rival["avg_runs_against"] == round((12 + 10 + 13) / 3, 1)
 
     recent = recent_games_for_team(games, 162670, limit=3)
     assert len(recent) == 3
@@ -55,8 +57,11 @@ def test_get_opponent_intel_from_data():
     assert intel["available"] is True
     assert intel["opponent_name"] == "RIVAL STARS"
     assert intel["standing"]["losses"] == 3
+    assert intel["standing"]["avg_runs_for"] == round((11 + 5 + 9) / 3, 1)
     assert len(intel["recent_games"]) == 3
+    assert intel["recent_games_limit"] == 5
     assert "spordle.com" in intel["spordle_url"]
+    assert "gameId=900001" in intel["spordle_game_url"]
 
 
 def test_resolve_spordle_game_by_date():
@@ -136,3 +141,34 @@ async def test_sync_schedule_endpoint(client: AsyncClient, session):
     list_res = await client.get("/games/")
     synced = list_res.json()
     assert any(g.get("external_game_id") for g in synced)
+
+
+@pytest.mark.asyncio
+async def test_sync_schedule_preserves_game_mode(client: AsyncClient, session):
+    team = session.get(Team, 1)
+    team.integration_version = "lfbq_spordle"
+    team.integration_config_json = json.dumps(
+        {"schedule_id": 193095, "our_spordle_team_id": 167495}
+    )
+    session.add(team)
+    session.commit()
+
+    game_res = await client.post(
+        "/games/",
+        json={"date": "2026-06-01", "opponent": "Rival", "mode": "develop"},
+    )
+    assert game_res.status_code == 200
+    game_id = game_res.json()["id"]
+
+    schedule = load_fixture("schedule_games.json")
+    with patch(
+        "app.league_integrations.lfbq_spordle.sync._client.get_schedule_games",
+        return_value=schedule,
+    ):
+        res = await client.post("/games/sync-schedule")
+
+    assert res.status_code == 200
+    assert res.json()["ok"] is True
+
+    updated = await client.get(f"/games/{game_id}")
+    assert updated.json()["mode"] == "develop"

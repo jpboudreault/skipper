@@ -45,8 +45,6 @@ def spordle_game_to_fields(spordle_game: dict, our_team_id: int, *, default_leag
         "external_source": "spordle",
         "external_game_id": str(spordle_game["id"]),
         "league": default_league,
-        "mode": "compete",
-        "game_type": "season",
     }
 
     surface = spordle_game.get("surface") or {}

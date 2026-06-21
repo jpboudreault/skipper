@@ -11,6 +11,8 @@
 		losses?: number;
 		pct?: number;
 		points?: number;
+		avg_runs_for?: number;
+		avg_runs_against?: number;
 	};
 
 	type RecentGame = {
@@ -25,7 +27,9 @@
 		opponent_name?: string;
 		standing?: Standing;
 		recent_games?: RecentGame[];
+		recent_games_limit?: number;
 		spordle_url?: string;
+		spordle_game_url?: string;
 		fetched_at?: string;
 	};
 
@@ -64,7 +68,7 @@
 		</div>
 
 		{#if intel.standing}
-			<div class="grid grid-cols-2 sm:grid-cols-4 gap-3">
+			<div class="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-3">
 				<div class="stat bg-base-200 rounded-box p-3">
 					<div class="stat-title text-xs">{$t('opponent_intel_rank')}</div>
 					<div class="stat-value text-2xl text-primary">#{intel.standing.rank ?? '—'}</div>
@@ -81,12 +85,27 @@
 					<div class="stat-title text-xs">{$t('opponent_intel_points')}</div>
 					<div class="stat-value text-2xl">{intel.standing.points ?? '—'}</div>
 				</div>
+				<div class="stat bg-base-200 rounded-box p-3">
+					<div class="stat-title text-xs">{$t('opponent_intel_runs_per_game')}</div>
+					<div class="stat-value text-2xl">{intel.standing.avg_runs_for ?? '—'}</div>
+				</div>
+				<div class="stat bg-base-200 rounded-box p-3">
+					<div class="stat-title text-xs">{$t('opponent_intel_runs_allowed_per_game')}</div>
+					<div class="stat-value text-2xl">{intel.standing.avg_runs_against ?? '—'}</div>
+				</div>
 			</div>
 		{/if}
 
 		{#if intel.recent_games && intel.recent_games.length > 0}
 			<div>
-				<h3 class="font-semibold text-base-content mb-2">{$t('opponent_intel_recent_games')}</h3>
+				<div class="flex flex-wrap items-baseline gap-2 mb-2">
+					<h3 class="font-semibold text-base-content">{$t('opponent_intel_recent_games')}</h3>
+					<span class="text-xs text-base-content/50">
+						{$t('opponent_intel_recent_games_note', {
+							count: intel.recent_games.length
+						})}
+					</span>
+				</div>
 				<ul class="space-y-2">
 					{#each intel.recent_games as game}
 						<li class="flex flex-wrap items-center gap-2 text-sm border border-base-200 rounded-lg px-3 py-2">
@@ -104,11 +123,18 @@
 			</div>
 		{/if}
 
-		{#if intel.spordle_url}
-			<div class="pt-2">
-				<a href={intel.spordle_url} target="_blank" rel="noopener noreferrer" class="btn btn-outline btn-sm">
-					{$t('opponent_intel_view_spordle')}
-				</a>
+		{#if intel.spordle_game_url || intel.spordle_url}
+			<div class="flex flex-wrap gap-2 pt-2">
+				{#if intel.spordle_game_url}
+					<a href={intel.spordle_game_url} target="_blank" rel="noopener noreferrer" class="btn btn-primary btn-sm">
+						{$t('opponent_intel_view_game_spordle')}
+					</a>
+				{/if}
+				{#if intel.spordle_url}
+					<a href={intel.spordle_url} target="_blank" rel="noopener noreferrer" class="btn btn-outline btn-sm">
+						{$t('opponent_intel_view_spordle')}
+					</a>
+				{/if}
 			</div>
 		{/if}
 	</div>

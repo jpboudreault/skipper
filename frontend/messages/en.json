@@ -147,8 +147,12 @@
   "opponent_intel_record": "Record",
   "opponent_intel_win_pct": "Win %",
   "opponent_intel_points": "Points",
+  "opponent_intel_runs_per_game": "Runs / game",
+  "opponent_intel_runs_allowed_per_game": "Runs allowed / game",
   "opponent_intel_recent_games": "Recent games",
-  "opponent_intel_view_spordle": "View schedule on Spordle",
+  "opponent_intel_recent_games_note": "Last {count} completed league games",
+  "opponent_intel_view_game_spordle": "View this game on Spordle",
+  "opponent_intel_view_spordle": "View full schedule on Spordle",
 
   "game_tabs_back_to_games": "← Back to Games",
   "game_tabs_game_number": "Game #{number}",

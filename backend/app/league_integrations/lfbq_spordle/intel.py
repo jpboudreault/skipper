@@ -85,6 +85,8 @@ def compute_standings(games: List[dict]) -> Dict[int, dict]:
         rec["rank"] = rank
         rec["played"] = played
         rec["pct"] = round(rec["wins"] / played, 3) if played else 0.0
+        rec["avg_runs_for"] = round(rec["runs_for"] / played, 1) if played else None
+        rec["avg_runs_against"] = round(rec["runs_against"] / played, 1) if played else None
         rec["team_name"] = names.get(team_id)
 
     return records
@@ -103,7 +105,10 @@ def recent_games_for_team(games: List[dict], team_id: int, *, limit: int = 5) ->
     return results
 
 
-def build_spordle_url(config: dict) -> Optional[str]:
+RECENT_GAMES_LIMIT = 5
+
+
+def build_spordle_schedule_url(config: dict) -> Optional[str]:
     page_slug = config.get("page_slug")
     page_id = config.get("page_id")
     schedule_id = config.get("schedule_id")
@@ -114,6 +119,18 @@ def build_spordle_url(config: dict) -> Optional[str]:
         f"https://page.spordle.com/{locale}/{page_slug}/schedule-stats-standings/"
         f"{page_id}?tab=schedule&scheduleId={schedule_id}"
     )
+
+
+def build_spordle_game_url(config: dict, game_id: int | str) -> Optional[str]:
+    schedule_url = build_spordle_schedule_url(config)
+    if not schedule_url or game_id is None:
+        return schedule_url
+    return f"{schedule_url}&gameId={game_id}"
+
+
+def build_spordle_url(config: dict) -> Optional[str]:
+    """Backward-compatible alias for the league schedule page."""
+    return build_spordle_schedule_url(config)
 
 
 def get_opponent_intel_from_data(
@@ -132,14 +149,16 @@ def get_opponent_intel_from_data(
     opponent_name = _team_name(spordle_game, opponent_id)
     standings = compute_standings(schedule_games)
     standing = standings.get(opponent_id)
-    recent = recent_games_for_team(schedule_games, opponent_id, limit=5)
+    recent = recent_games_for_team(schedule_games, opponent_id, limit=RECENT_GAMES_LIMIT)
 
     return {
         "available": True,
         "opponent_name": opponent_name,
         "standing": standing,
         "recent_games": recent,
-        "spordle_url": build_spordle_url(config),
+        "recent_games_limit": RECENT_GAMES_LIMIT,
+        "spordle_url": build_spordle_schedule_url(config),
+        "spordle_game_url": build_spordle_game_url(config, spordle_game["id"]),
         "fetched_at": datetime.now(timezone.utc).isoformat(),
     }
 
