@@ -42,15 +42,21 @@
 		}
 	});
 
+	function fieldInnings(stat: any): number {
+		return stat.total_innings - (stat.positions['0'] || 0);
+	}
+
 	function formatPositionStat(stat: any, pos: string) {
 		const count = stat.positions[pos] || 0;
 		if (viewMode === 'count') {
 			return count > 0 ? count : '-';
-		} else {
-			if (stat.total_innings === 0) return '-';
-			const pct = (count / stat.total_innings) * 100;
-			return pct > 0 ? pct.toFixed(0) + '%' : '-';
 		}
+		if (stat.total_innings === 0) return '-';
+		// Bench % is share of all innings; field position % is share of innings on the field only.
+		const denominator = pos === '0' ? stat.total_innings : fieldInnings(stat);
+		if (denominator === 0) return '-';
+		const pct = (count / denominator) * 100;
+		return pct > 0 ? pct.toFixed(0) + '%' : '-';
 	}
 
 	function handleSort(field: string) {
