@@ -2,7 +2,7 @@
 	import { onMount } from 'svelte';
 	import { apiFetch } from '$lib/api';
 	import { t, translate, formatLocaleDate } from '$lib/i18n';
-	import { formatOpponentMatchup } from '$lib/games';
+	import { formatOpponentMatchup, homeAwayBadgeClass } from '$lib/games';
 
 	let dashboardData: any = $state(null);
 	let loading = $state(true);
@@ -128,7 +128,7 @@
 									<div class="bg-base-200/50 p-3 rounded-lg border border-base-200">
 										<div class="flex justify-between items-center mb-2">
 											<span class="font-bold">{formatLocaleDate(game.date, dateFormatOptions)}</span>
-											<span class="badge badge-sm {game.home_away === 'H' ? 'badge-neutral' : 'badge-outline'}">{game.home_away === 'H' ? $t('common_home') : $t('common_away')}</span>
+											<span class="badge badge-sm {homeAwayBadgeClass(game.home_away)}">{game.home_away === 'H' ? $t('common_home') : $t('common_away')}</span>
 										</div>
 										<a href="/games/{game.id}" class="text-lg font-bold mb-3 block hover:text-primary transition-colors">
 											{formatOpponentMatchup(game.home_away, game.opponent, {

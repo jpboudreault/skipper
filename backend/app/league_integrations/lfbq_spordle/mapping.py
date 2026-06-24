@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 from datetime import date
-from typing import List, Optional
+from typing import Dict, List, Optional, Set
 
 from app.models import Game
 
@@ -57,6 +57,74 @@ def spordle_game_to_fields(spordle_game: dict, our_team_id: int, *, default_leag
         fields["result_runs_against"] = stat.get("goalAgainst")
 
     return fields
+
+
+def normalize_team_label(value: str | None) -> str:
+    if not value:
+        return ""
+    return " ".join(value.upper().split())
+
+
+def team_catalog_from_schedule(schedule_games: List[dict]) -> Dict[int, dict]:
+    catalog: Dict[int, dict] = {}
+    for game in schedule_games:
+        for side in ("homeTeam", "awayTeam"):
+            team = game.get(side) or {}
+            team_id = team.get("id")
+            if team_id is None:
+                continue
+            team_id = int(team_id)
+            entry = catalog.setdefault(team_id, {"labels": set(), "display_name": None})
+            labels: Set[str] = entry["labels"]
+            for key in ("name", "shortName"):
+                raw = team.get(key)
+                if not raw:
+                    continue
+                labels.add(normalize_team_label(raw))
+                if key == "name" or entry["display_name"] is None:
+                    entry["display_name"] = raw
+    return catalog
+
+
+def resolve_opponent_by_name(
+    game: Game,
+    schedule_games: List[dict],
+    our_team_id: int,
+) -> Optional[dict]:
+    """Match a Skipper opponent name to a Spordle team in the schedule."""
+    query = normalize_team_label(game.opponent)
+    if not query:
+        return None
+
+    catalog = team_catalog_from_schedule(schedule_games)
+    exact_matches: List[tuple[int, str]] = []
+    for team_id, entry in catalog.items():
+        if team_id == our_team_id:
+            continue
+        if query in entry["labels"]:
+            exact_matches.append((team_id, entry["display_name"] or query))
+
+    if len(exact_matches) == 1:
+        team_id, display_name = exact_matches[0]
+        return {"team_id": team_id, "name": display_name}
+
+    if len(exact_matches) > 1:
+        return None
+
+    substring_matches: List[tuple[int, str]] = []
+    for team_id, entry in catalog.items():
+        if team_id == our_team_id:
+            continue
+        for label in entry["labels"]:
+            if query in label or label in query:
+                substring_matches.append((team_id, entry["display_name"] or label))
+                break
+
+    if len(substring_matches) == 1:
+        team_id, display_name = substring_matches[0]
+        return {"team_id": team_id, "name": display_name}
+
+    return None
 
 
 def resolve_spordle_game(

@@ -12,6 +12,7 @@ from app.league_integrations.lfbq_spordle.config import (
     parse_schedules,
     resolve_spordle_game_across_schedules,
 )
+from app.league_integrations.lfbq_spordle.mapping import resolve_opponent_by_name
 from app.standings_points import resolve_standings_points, win_pct as standings_win_pct
 from app.league_integrations.registry import register_integration
 from app.models import Game, Team
@@ -176,6 +177,32 @@ def build_spordle_url(config: dict) -> Optional[str]:
     return build_spordle_schedule_url(config)
 
 
+def get_opponent_intel_for_team(
+    *,
+    opponent_id: int,
+    opponent_name: str,
+    schedule_games: List[dict],
+    config: dict,
+    spordle_game_id: int | str | None = None,
+) -> dict:
+    standings = compute_standings(schedule_games, config)
+    standing = standings.get(opponent_id)
+    recent = recent_games_for_team(schedule_games, opponent_id, limit=RECENT_GAMES_LIMIT)
+    for row in recent:
+        row["spordle_url"] = build_spordle_game_url(config, row.get("spordle_game_id"))
+
+    return {
+        "available": True,
+        "opponent_name": opponent_name,
+        "standing": standing,
+        "recent_games": recent,
+        "recent_games_limit": RECENT_GAMES_LIMIT,
+        "spordle_game_url": build_spordle_game_url(config, spordle_game_id),
+        "spordle_team_url": build_spordle_team_url(config, opponent_id),
+        "fetched_at": datetime.now(timezone.utc).isoformat(),
+    }
+
+
 def get_opponent_intel_from_data(
     *,
     spordle_game: dict,
@@ -190,22 +217,13 @@ def get_opponent_intel_from_data(
 
     opponent_id = away_id if home_id == our_team_id else home_id
     opponent_name = _team_name(spordle_game, opponent_id)
-    standings = compute_standings(schedule_games, config)
-    standing = standings.get(opponent_id)
-    recent = recent_games_for_team(schedule_games, opponent_id, limit=RECENT_GAMES_LIMIT)
-    for row in recent:
-        row["spordle_url"] = build_spordle_game_url(config, row.get("spordle_game_id"))
-
-    return {
-        "available": True,
-        "opponent_name": opponent_name,
-        "standing": standing,
-        "recent_games": recent,
-        "recent_games_limit": RECENT_GAMES_LIMIT,
-        "spordle_game_url": build_spordle_game_url(config, spordle_game["id"]),
-        "spordle_team_url": build_spordle_team_url(config, opponent_id),
-        "fetched_at": datetime.now(timezone.utc).isoformat(),
-    }
+    return get_opponent_intel_for_team(
+        opponent_id=int(opponent_id),
+        opponent_name=opponent_name,
+        schedule_games=schedule_games,
+        config=config,
+        spordle_game_id=spordle_game.get("id"),
+    )
 
 
 def intel_dashboard_summary(intel: dict) -> dict:
@@ -271,13 +289,22 @@ def lfbq_spordle_opponent_intel(game: Game, team: Team, config: dict) -> dict:
             _client,
             cache_ttl_seconds=cache_ttl_seconds,
         )
-        if spordle_game is None:
+        if spordle_game is not None:
+            return get_opponent_intel_from_data(
+                spordle_game=spordle_game,
+                schedule_games=season_games,
+                our_team_id=our_team_id,
+                config=config,
+            )
+
+        opponent = resolve_opponent_by_name(game, season_games, our_team_id)
+        if opponent is None:
             return {"available": False, "reason": "game_not_linked"}
 
-        return get_opponent_intel_from_data(
-            spordle_game=spordle_game,
+        return get_opponent_intel_for_team(
+            opponent_id=opponent["team_id"],
+            opponent_name=opponent["name"],
             schedule_games=season_games,
-            our_team_id=our_team_id,
             config=config,
         )
     except Exception:

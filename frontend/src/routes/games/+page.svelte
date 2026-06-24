@@ -8,6 +8,7 @@
 		formatOpponentMatchup,
 		splitGames,
 		gameResult,
+		homeAwayBadgeClass,
 		resultBadgeClass
 	} from '$lib/games';
 
@@ -217,8 +218,7 @@
 				{/if}
 			</div>
 			<div class="flex flex-wrap items-center gap-2">
-				<span
-					class="badge badge-sm {game.home_away === 'H' ? 'badge-neutral' : 'badge-outline'}"
+				<span class="badge badge-sm {homeAwayBadgeClass(game.home_away)}"
 					>{game.home_away === 'H' ? $t('common_home') : $t('common_away')}</span
 				>
 				<span class="badge badge-sm {gameTypeBadgeClass(game.game_type)}">
@@ -487,7 +487,15 @@
 											tbd: '—'
 										})}</td
 									>
-									<td class="text-base-content">{game.home_away || '—'}</td>
+									<td>
+										{#if game.home_away === 'H' || game.home_away === 'A'}
+											<span class="badge badge-sm {homeAwayBadgeClass(game.home_away)}">
+												{game.home_away === 'H' ? $t('common_home') : $t('common_away')}
+											</span>
+										{:else}
+											<span class="text-base-content/50">—</span>
+										{/if}
+									</td>
 									<td>
 										<span
 											class="badge badge-sm {game.mode === 'compete'

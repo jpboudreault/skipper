@@ -17,21 +17,26 @@ Skipper was originally built for **Baseball Québec** house-league and competiti
 - **Pitching rules enforced for you** — configurable pitch-count limits and rest days; eligibility checked before a player is sent to the mound.
 - **One login, multiple teams** — manage several rosters (e.g. 13U and 15U) with isolated data and per-team league settings.
 - **Season view that actually helps** — batting, pitching, and position stats filtered by game type so you can see trends, not just totals.
+- **League schedule in sync** — pull season, playoff, and tournament games from Spordle (LFBQ); opponent W-L-D on every upcoming game before you even open the lineup tab.
+- **English or French** — bilingual UI with per-team language defaults; lock to one language in production if you prefer.
 
 ## Features
 
 | Area | What you get |
 |------|----------------|
-| **Dashboard** | Upcoming games, recent results, and quick season snapshots |
+| **Dashboard** | Upcoming games with opponent record (W-L-D), recent results, quick links to lineup/availability, pitching plan shortcut |
 | **Roster** | Players, substitutes, head/assistant coaches, jersey numbers, default batting order |
 | **Position ratings** | Rate each player at every position; mark spots as forbidden |
-| **Schedule** | Season, tournament, and scrimmage games with opponent, venue, home/away |
+| **Schedule** | Season, postseason, and tournament games with opponent, venue, home/away, and game-type badges |
+| **Spordle sync (LFBQ)** | One-click import from multiple Spordle schedules (regular season + playoffs + tournaments); links games to league IDs without overwriting your game mode |
+| **Opponent intel** | Standing, W-L-D record, runs per game, last completed league games, and links to Spordle — season stats even when the upcoming game is a playoff or tourney |
 | **Availability** | Per-game present / absent / injured status; mid-game injury tracking |
 | **Lineup optimizer** | CP-SAT solver with compete & develop modes, locked cells, bench fairness, pitcher re-entry and rest constraints |
 | **Batting order** | Drag-and-drop order with printable official lineup card |
 | **Box scores** | Batting and pitching entry; photo-assisted scoresheet import (optional) |
-| **Stats** | Season batting, pitching, and position breakdowns |
-| **Multi-tenant** | Team-based access via Google Sign-In; settings per team in `tenants.json` |
+| **Pitching plan** | Rolling view of pitcher innings across upcoming games for rest planning |
+| **Stats** | Season batting, pitching, and position breakdowns; standings support wins, losses, and draws |
+| **Auth & teams** | Google or Microsoft sign-in; multiple isolated rosters per login; settings per team in `tenants.json` |
 
 ## Screenshots
 
@@ -87,7 +92,30 @@ To add a new league, register a backend prompt in `backend/app/league_formats/` 
 
 ### Spordle schedule sync (LFBQ)
 
-To sync games and show opponent intel from Spordle, set `integration_version` and `integration_config` on a tenant. See [`docs/league-integrations.md`](docs/league-integrations.md) for field meanings and how to read them from a Spordle URL.
+Connect a team to [Spordle](https://page.spordle.com) to import games and show opponent scouting data. Configure `integration_version` and `integration_config` in `tenants.json`.
+
+**Multiple schedules per team** — list every Spordle schedule your team plays on (regular season, playoffs, provincial tournament, etc.). Sync pulls them all; each imported game gets the right `game_type`. Opponent intel (standing, W-L-D, recent games) always comes from the **season** schedule, including when you're preparing for a playoff game.
+
+```json
+{
+  "integration_version": "lfbq_spordle",
+  "integration_config": {
+    "our_spordle_team_id": 167215,
+    "page_slug": "ligue-feminine-de-baseball-du-quebec",
+    "page_id": "1ed21b23-724b-6b80-b13c-06bf14840f98",
+    "locale": "fr",
+    "schedules": [
+      { "schedule_id": 193093, "game_type": "season", "label": "Regular season" },
+      { "schedule_id": 195112, "game_type": "postseason", "label": "Playoffs" },
+      { "schedule_id": 196000, "game_type": "tournament", "label": "Provincial" }
+    ]
+  }
+}
+```
+
+On the **Games** page: **Sync from Spordle** imports/updates games; every upcoming card shows the opponent's **W-L-D** record when intel is available. The game overview adds standing, runs per game, recent results, and Spordle links.
+
+Full field reference and URL parsing: [`docs/league-integrations.md`](docs/league-integrations.md).
 
 ## Prerequisites
 
@@ -105,12 +133,12 @@ cp backend/app/tenants.json.example backend/app/tenants.json
 ```
 
 Edit `backend/.env`:
-- Set `GOOGLE_CLIENT_ID` from the [Google Cloud Console](https://console.cloud.google.com) and/or `MICROSOFT_CLIENT_ID` from [Azure Portal](https://portal.azure.com) (at least one is required for login)
+- Set `GOOGLE_CLIENT_ID` from the [Google Cloud Console](https://console.cloud.google.com) and/or `MICROSOFT_CLIENT_ID` from [Azure Portal](https://portal.azure.com) (at least one is required for login; both supported)
 - Add `http://localhost:5173` to **Authorized JavaScript Origins** (Google) and `http://localhost:5173/auth/callback/microsoft` to **SPA redirect URIs** (Microsoft)
 - Keep `DEV_MODE=true` for local development (auto-provisions users on first login)
 - Optional: set `SKIPPER_LOCALE=en` or `SKIPPER_LOCALE=fr` to lock the app to one language (also set the same variable when running the frontend dev server, or add it to `frontend/.env`)
 
-Edit `backend/app/tenants.json` with your team names, league format versions, pitch-count rules, and admin email addresses.
+Edit `backend/app/tenants.json` with your team names, league format versions, pitch-count rules, admin email addresses, and optional Spordle `schedules` (see [Spordle schedule sync](#spordle-schedule-sync-lfbq)).
 
 ### 2. Backend
 
@@ -170,10 +198,10 @@ bash deploy.sh
 ## Project structure
 
 ```
-backend/     FastAPI API, SQLite database, lineup optimizer, league format plugins
-frontend/    SvelteKit UI, printable lineup formats
+backend/     FastAPI API, SQLite database, lineup optimizer, league format plugins, Spordle integrations
+frontend/    SvelteKit UI, printable lineup formats, opponent intel panels
 bootstrap/   Seed scripts and CSV templates
-docs/        Screenshot gallery for README (`docs/screenshots/`)
+docs/        League integration guide, screenshot gallery (`docs/screenshots/`)
 Dockerfile   Unified production image
 fly.toml     Fly.io configuration
 deploy.sh    Deployment helper (reads FLY_APP_NAME from backend/.env)

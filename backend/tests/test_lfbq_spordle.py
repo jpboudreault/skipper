@@ -17,7 +17,7 @@ from app.league_integrations.lfbq_spordle.intel import (
     intel_dashboard_summary,
     recent_games_for_team,
 )
-from app.league_integrations.lfbq_spordle.mapping import resolve_spordle_game
+from app.league_integrations.lfbq_spordle.mapping import resolve_opponent_by_name, resolve_spordle_game
 from app.models import Game, Team
 
 FIXTURES = Path(__file__).parent / "fixtures" / "spordle"
@@ -244,6 +244,60 @@ def test_resolve_spordle_game_by_date():
     resolved = resolve_spordle_game(game, games, 167495)
     assert resolved is not None
     assert resolved["id"] == 900001
+
+
+def test_resolve_opponent_by_name():
+    games = load_fixture("schedule_games.json")
+    game = Game(
+        team_id=1,
+        date=date(2026, 8, 15),
+        opponent="rival stars",
+        game_type="tournament",
+        mode="compete",
+    )
+    resolved = resolve_opponent_by_name(game, games, 167495)
+    assert resolved == {"team_id": 162670, "name": "RIVAL STARS"}
+
+
+@pytest.mark.asyncio
+async def test_opponent_intel_manual_tournament_by_opponent_name(client: AsyncClient, session):
+    team = session.get(Team, 1)
+    team.integration_version = "lfbq_spordle"
+    team.integration_config_json = json.dumps(
+        {
+            "our_spordle_team_id": 167495,
+            "page_slug": "ligue-feminine-de-baseball-du-quebec",
+            "schedules": [{"schedule_id": 193095, "game_type": "season"}],
+        }
+    )
+    session.add(team)
+    session.commit()
+
+    game_res = await client.post(
+        "/games/",
+        json={
+            "date": "2026-08-15",
+            "opponent": "Rival Stars",
+            "mode": "compete",
+            "game_type": "tournament",
+        },
+    )
+    game_id = game_res.json()["id"]
+    schedule = load_fixture("schedule_games.json")
+
+    with patch(
+        "app.league_integrations.lfbq_spordle.intel._client.get_schedule_games",
+        return_value=schedule,
+    ):
+        res = await client.get(f"/games/{game_id}/opponent-intel")
+
+    payload = res.json()
+    assert res.status_code == 200
+    assert payload["available"] is True
+    assert payload["opponent_name"] == "RIVAL STARS"
+    assert payload["standing"]["losses"] == 3
+    assert payload["spordle_game_url"] is None
+    assert payload["spordle_team_url"].endswith("/teams/162670")
 
 
 @pytest.mark.asyncio

@@ -49,7 +49,7 @@ After changing `tenants.json`, redeploy (or restart locally). Startup syncs inte
 
 **Sync** needs `our_spordle_team_id` plus at least one schedule (`schedules` or legacy `schedule_id`). Sync imports from every configured schedule and sets each new game’s `game_type` from its schedule entry.
 
-**Opponent intel** needs the same team ID plus a `season` schedule. Standings and recent opponent games always come from the season schedule, even when previewing a playoff or tournament game. The current game is resolved across all configured schedules so Spordle links still work.
+**Opponent intel** needs the same team ID plus a `season` schedule. Standings and recent opponent games always come from the season schedule, even when previewing a playoff or tournament game. The current game is resolved across all configured schedules so Spordle links still work. For manually entered games that are not on Spordle (for example an external tournament), intel falls back to matching the opponent name against teams in the season schedule.
 
 **Spordle links** in opponent intel need `page_slug` (and `locale`). Links use these public URL patterns:
 
@@ -89,6 +89,6 @@ https://page.spordle.com/fr/ligue-feminine-de-baseball-du-quebec/schedule-stats-
 With `lfbq_spordle` configured:
 
 - **Sync schedule** (Games page) — imports/updates games from every configured Spordle schedule; new games get `game_type` from their schedule entry (`season`, `postseason`, or `tournament`). Does not overwrite game mode or game type on existing games.
-- **Opponent intel** (game overview) — standing, runs per game, and last 5 completed opponent games from the **season** schedule only; works for upcoming games from any configured schedule.
+- **Opponent intel** (game overview) — standing, runs per game, and last 5 completed opponent games from the **season** schedule only; works for upcoming games from any configured schedule, and for manually entered games when the opponent name matches a Spordle team.
 
 Optional env var: `SPORDLE_API_KEY` (defaults to the public Play API key used by Spordle Page).

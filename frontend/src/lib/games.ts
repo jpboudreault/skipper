@@ -51,6 +51,13 @@ export function gameResult(
 	return 'tie';
 }
 
+/** DaisyUI badge class for home/away pills. */
+export function homeAwayBadgeClass(homeAway: HomeAway): string {
+	if (homeAway === 'H') return 'badge-info';
+	if (homeAway === 'A') return 'badge-secondary';
+	return 'badge-ghost';
+}
+
 /** DaisyUI badge class for win/loss/tie pills (matches opponent intel styling). */
 export function resultBadgeClass(result: GameResult | string | null | undefined): string {
 	if (result === 'win') return 'badge-success';
