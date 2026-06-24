@@ -2,7 +2,16 @@
 	let { game, team, players, battingOrder, lineup, availability = [] } = $props();
 
 	// Derived states
-	let dateStr = $derived(game?.date ? new Date(game.date).toLocaleDateString('en-GB', { day: '2-digit', month: '2-digit', year: 'numeric' }) : '');
+	let dateStr = $derived(
+		game?.date
+			? new Date(game.date).toLocaleDateString('en-GB', {
+					day: '2-digit',
+					month: '2-digit',
+					year: 'numeric',
+					timeZone: 'UTC'
+				})
+			: ''
+	);
 	let isHome = $derived(game?.home_away === 'H');
 	let isAway = $derived(game?.home_away === 'A');
 

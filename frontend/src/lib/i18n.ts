@@ -88,5 +88,7 @@ export function formatLocaleDate(
 ): string {
 	if (!dateStr) return '';
 	const loc = get(locale) === 'fr' ? 'fr-CA' : 'en-CA';
-	return new Date(dateStr).toLocaleDateString(loc, options);
+	// Calendar dates from the API (YYYY-MM-DD) are timezone-agnostic; parse as UTC
+	// so evening games in Quebec do not display as the previous day.
+	return new Date(dateStr).toLocaleDateString(loc, { timeZone: 'UTC', ...options });
 }

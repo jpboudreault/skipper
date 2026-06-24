@@ -1,5 +1,57 @@
 import pytest
 from httpx import AsyncClient
+from sqlmodel import select
+
+from app.models import Game
+
+@pytest.mark.asyncio
+async def test_game_date_roundtrip_preserves_calendar_date(client: AsyncClient, session):
+    """Evening game dates (e.g. July 17) must not shift when stored and read back."""
+    expected_date = "2026-07-17"
+
+    create_res = await client.post(
+        "/games/",
+        json={
+            "date": expected_date,
+            "opponent": "Braves",
+            "home_away": "H",
+            "mode": "compete",
+            "game_type": "tournament",
+        },
+    )
+    assert create_res.status_code == 200
+    created = create_res.json()
+    assert created["date"] == expected_date
+
+    get_res = await client.get(f"/games/{created['id']}")
+    assert get_res.status_code == 200
+    assert get_res.json()["date"] == expected_date
+
+    list_res = await client.get("/games/")
+    assert list_res.status_code == 200
+    listed = next(g for g in list_res.json() if g["id"] == created["id"])
+    assert listed["date"] == expected_date
+
+    stored = session.exec(select(Game).where(Game.id == created["id"])).one()
+    assert stored.date.isoformat() == expected_date
+
+    update_res = await client.put(
+        f"/games/{created['id']}",
+        json={
+            "date": expected_date,
+            "opponent": "Braves",
+            "home_away": "H",
+            "mode": "compete",
+            "game_type": "tournament",
+            "venue": "Home Field",
+        },
+    )
+    assert update_res.status_code == 200
+    assert update_res.json()["date"] == expected_date
+
+    session.refresh(stored)
+    assert stored.date.isoformat() == expected_date
+
 
 @pytest.mark.asyncio
 async def test_game_crud(client: AsyncClient, session):
