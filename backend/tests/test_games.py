@@ -131,6 +131,51 @@ async def test_batting_crud(client: AsyncClient, session):
 
 
 @pytest.mark.asyncio
+async def test_batting_update_preserves_existing_order_when_omitted(client: AsyncClient, session):
+    team_res = await client.post("/teams/", json={
+        "name": "T", "season": "2025", "innings_per_game": 5,
+        "max_pitcher_innings_per_game": 3, "max_pitcher_innings_per_7_days": 4,
+        "pitch_count_rules_json": "{}"
+    })
+    team = team_res.json()
+
+    player_res = await client.post("/players/", json={
+        "first_name": "A", "last_name": "B", "jersey": 1, "active": True
+    })
+    player = player_res.json()
+
+    game_res = await client.post("/games/", json={
+        "date": "2026-06-01", "mode": "compete"
+    })
+    game = game_res.json()
+
+    order_res = await client.put(f"/games/{game['id']}/batting", json=[{
+        "player_id": player["id"],
+        "batting_order": 4,
+        "singles": 1
+    }])
+    assert order_res.status_code == 200
+
+    stats_res = await client.put(f"/games/{game['id']}/batting", json=[{
+        "player_id": player["id"],
+        "singles": 2,
+        "doubles": 1,
+        "hr": 0,
+        "bb": 1,
+        "rbi": 3,
+        "r": 2,
+        "sb": 1
+    }])
+    assert stats_res.status_code == 200
+
+    get_res = await client.get(f"/games/{game['id']}/batting")
+    line = get_res.json()[0]
+    assert line["batting_order"] == 4
+    assert line["singles"] == 2
+    assert line["doubles"] == 1
+
+
+@pytest.mark.asyncio
 async def test_batting_ingest(client: AsyncClient, session, monkeypatch):
     # Setup team and player and game
     team_res = await client.post("/teams/", json={

@@ -275,7 +275,7 @@ def set_batting(lines: List[BattingLineUpdate], game: Game = Depends(get_active_
             )
         ).first()
         if existing:
-            for key, value in line.model_dump(exclude={"player_id"}).items():
+            for key, value in line.model_dump(exclude={"player_id"}, exclude_unset=True).items():
                 setattr(existing, key, value)
             session.add(existing)
         else:
