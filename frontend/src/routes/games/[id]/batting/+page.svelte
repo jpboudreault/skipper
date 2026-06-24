@@ -371,15 +371,24 @@ beforeNavigate((event) => {
 		</div>
 	{:else}
 		<div class="overflow-x-auto">
-			<table class="table-sm table-pin-rows table w-full">
+			<table class="table-sm table-pin-rows table w-full table-fixed text-xs">
+				<colgroup>
+					<col class="w-8" />
+					<col class="w-24" />
+					{#each statColumns as _col}
+						<col class="w-9" />
+					{/each}
+				</colgroup>
 				<thead class="bg-base-200">
 					<tr>
-						<th class="bg-base-300 text-base-content sticky left-0 z-20 w-12 font-bold">#</th>
-						<th class="bg-base-300 text-base-content sticky left-12 z-20 min-w-[140px] font-bold"
+						<th class="bg-base-300 text-base-content sticky left-0 z-20 px-1 font-bold">#</th>
+						<th class="bg-base-300 text-base-content sticky left-8 z-20 px-1 font-bold"
 							>{$t('batting_player_col')}</th
 						>
 						{#each statColumns as col}
-							<th class="bg-base-200 text-base-content w-12 text-center font-bold">{col.label}</th>
+							<th class="bg-base-200 text-base-content px-0.5 text-center font-bold leading-none"
+								>{col.label}</th
+							>
 						{/each}
 					</tr>
 				</thead>
@@ -387,21 +396,22 @@ beforeNavigate((event) => {
 					{#each sortedPlayers() as player}
 						<tr class="hover:bg-base-200/50 transition-colors">
 							<td
-								class="bg-base-100 text-base-content/70 border-base-300 sticky left-0 z-10 border-r font-bold"
+								class="bg-base-100 text-base-content/70 border-base-300 sticky left-0 z-10 border-r px-1 font-bold"
 								>{player.jersey}</td
 							>
 							<td
-								class="bg-base-100 text-base-content border-base-300 sticky left-12 z-10 min-w-[140px] border-r font-medium"
+								class="bg-base-100 text-base-content border-base-300 sticky left-8 z-10 truncate border-r px-1 font-medium"
+								title="{player.first_name} {player.last_name}"
 								>{player.first_name} {player.last_name}</td
 							>
 							{#each statColumns as col}
-								<td class="text-center">
+								<td class="px-0.5 py-1 text-center">
 									<input
 										type="number"
 										min="0"
 										value={getVal(player.id, col.key) === 0 ? '' : getVal(player.id, col.key)}
 										onblur={(e) => setVal(player.id, col.key, parseInt(e.currentTarget.value) || 0)}
-										class="input input-bordered input-xs w-10 p-0 text-center"
+										class="input input-bordered input-xs h-6 min-h-6 w-7 min-w-0 p-0 text-center"
 									/>
 								</td>
 							{/each}

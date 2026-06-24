@@ -6,7 +6,12 @@ from datetime import datetime, timezone
 from typing import Any, Dict, List, Optional
 
 from app.league_integrations.lfbq_spordle.client import SpordleClient
-from app.league_integrations.lfbq_spordle.mapping import resolve_spordle_game
+from app.league_integrations.lfbq_spordle.config import (
+    get_intel_schedule_id,
+    integration_is_configured,
+    parse_schedules,
+    resolve_spordle_game_across_schedules,
+)
 from app.standings_points import resolve_standings_points, win_pct as standings_win_pct
 from app.league_integrations.registry import register_integration
 from app.models import Game, Team
@@ -152,17 +157,17 @@ def build_spordle_team_url(config: dict, team_id: int | str) -> Optional[str]:
     return f"{base}/teams/{team_id}"
 
 
-def build_spordle_schedule_url(config: dict) -> Optional[str]:
+def build_spordle_schedule_url(config: dict, *, schedule_id: int | None = None) -> Optional[str]:
     """Division schedule page (schedule-stats-standings). Used to discover config IDs."""
     page_slug = config.get("page_slug")
     page_id = config.get("page_id")
-    schedule_id = config.get("schedule_id")
+    resolved_schedule_id = schedule_id or get_intel_schedule_id(config) or config.get("schedule_id")
     locale = config.get("locale", "fr")
-    if not page_slug or not page_id or not schedule_id:
+    if not page_slug or not page_id or not resolved_schedule_id:
         return None
     return (
         f"https://page.spordle.com/{locale}/{page_slug}/schedule-stats-standings/"
-        f"{page_id}?tab=schedule&scheduleId={schedule_id}"
+        f"{page_id}?tab=schedule&scheduleId={resolved_schedule_id}"
     )
 
 
@@ -242,27 +247,36 @@ def intel_dashboard_summary(intel: dict) -> dict:
 
 @register_integration("lfbq_spordle")
 def lfbq_spordle_opponent_intel(game: Game, team: Team, config: dict) -> dict:
-    schedule_id = config.get("schedule_id")
-    our_team_id = config.get("our_spordle_team_id")
-    if not schedule_id or not our_team_id:
+    if not integration_is_configured(config):
         return {"available": False, "reason": "integration_not_configured"}
 
-    our_team_id = int(our_team_id)
+    our_team_id = int(config["our_spordle_team_id"])
+    intel_schedule_id = get_intel_schedule_id(config)
+    if not intel_schedule_id:
+        return {"available": False, "reason": "integration_not_configured"}
+
     cache_ttl_hours = config.get("cache_ttl_hours", 6)
     cache_ttl_seconds = int(cache_ttl_hours * 3600)
+    schedules = parse_schedules(config)
 
     try:
-        schedule_games = _client.get_schedule_games(
-            int(schedule_id),
+        season_games = _client.get_schedule_games(
+            int(intel_schedule_id),
             cache_ttl_seconds=cache_ttl_seconds,
         )
-        spordle_game = resolve_spordle_game(game, schedule_games, our_team_id)
+        spordle_game = resolve_spordle_game_across_schedules(
+            game,
+            our_team_id,
+            schedules,
+            _client,
+            cache_ttl_seconds=cache_ttl_seconds,
+        )
         if spordle_game is None:
             return {"available": False, "reason": "game_not_linked"}
 
         return get_opponent_intel_from_data(
             spordle_game=spordle_game,
-            schedule_games=schedule_games,
+            schedule_games=season_games,
             our_team_id=our_team_id,
             config=config,
         )

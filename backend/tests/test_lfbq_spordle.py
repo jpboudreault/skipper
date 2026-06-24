@@ -8,6 +8,7 @@ from unittest.mock import patch
 import pytest
 from httpx import AsyncClient
 
+from app.league_integrations.lfbq_spordle.config import parse_schedules
 from app.league_integrations.lfbq_spordle.intel import (
     build_spordle_game_url,
     build_spordle_team_url,
@@ -25,6 +26,25 @@ FIXTURES = Path(__file__).parent / "fixtures" / "spordle"
 def load_fixture(name: str):
     with open(FIXTURES / name, encoding="utf-8") as f:
         return json.load(f)
+
+
+def test_parse_schedules_legacy_single_schedule_id():
+    schedules = parse_schedules({"schedule_id": 193095})
+    assert schedules == [{"schedule_id": 193095, "game_type": "season", "label": None}]
+
+
+def test_parse_schedules_multiple():
+    schedules = parse_schedules(
+        {
+            "schedules": [
+                {"schedule_id": 193095, "game_type": "season", "label": "Regular"},
+                {"schedule_id": 195112, "game_type": "postseason", "label": "Playoffs"},
+                {"schedule_id": 196000, "game_type": "tournament", "label": "Provincial"},
+            ]
+        }
+    )
+    assert len(schedules) == 3
+    assert schedules[1]["game_type"] == "postseason"
 
 
 def test_compute_standings_with_draw():
@@ -360,6 +380,142 @@ async def test_dashboard_warmup_links_and_prefetches(client: AsyncClient, sessio
 
     linked = await client.get(f"/games/{game_id}")
     assert linked.json()["external_game_id"] == "900001"
+
+
+PLAYOFF_GAME = {
+    "id": 910001,
+    "date": "2026-07-01",
+    "scheduleId": 195112,
+    "number": "P1",
+    "homeTeamId": 167495,
+    "awayTeamId": 162670,
+    "homeTeam": {"id": 167495, "name": "BLUE EXPOS"},
+    "awayTeam": {"id": 162670, "name": "RIVAL STARS"},
+    "teamStats": [],
+}
+
+
+def _schedule_games_side_effect(schedule_id: int, **_kwargs):
+    if schedule_id == 193095:
+        return load_fixture("schedule_games.json")
+    if schedule_id == 195112:
+        return [PLAYOFF_GAME]
+    return []
+
+
+@pytest.mark.asyncio
+async def test_sync_multiple_schedules_sets_game_type(client: AsyncClient, session):
+    team = session.get(Team, 1)
+    team.integration_version = "lfbq_spordle"
+    team.integration_config_json = json.dumps(
+        {
+            "our_spordle_team_id": 167495,
+            "schedules": [
+                {"schedule_id": 193095, "game_type": "season"},
+                {"schedule_id": 195112, "game_type": "postseason"},
+            ],
+        }
+    )
+    team.default_league = "LFBQ"
+    session.add(team)
+    session.commit()
+
+    with patch(
+        "app.league_integrations.lfbq_spordle.sync._client.get_schedule_games",
+        side_effect=_schedule_games_side_effect,
+    ):
+        res = await client.post("/games/sync-schedule")
+
+    payload = res.json()
+    assert res.status_code == 200
+    assert payload["ok"] is True
+    assert len(payload["schedules"]) == 2
+
+    list_res = await client.get("/games/")
+    synced = list_res.json()
+    postseason = [g for g in synced if g.get("game_type") == "postseason"]
+    assert len(postseason) == 1
+    assert postseason[0]["external_game_id"] == "910001"
+
+
+@pytest.mark.asyncio
+async def test_opponent_intel_playoff_game_uses_season_standings(client: AsyncClient, session):
+    team = session.get(Team, 1)
+    team.integration_version = "lfbq_spordle"
+    team.integration_config_json = json.dumps(
+        {
+            "our_spordle_team_id": 167495,
+            "page_slug": "ligue-feminine-de-baseball-du-quebec",
+            "schedules": [
+                {"schedule_id": 193095, "game_type": "season"},
+                {"schedule_id": 195112, "game_type": "postseason"},
+            ],
+        }
+    )
+    session.add(team)
+    session.commit()
+
+    game_res = await client.post(
+        "/games/",
+        json={
+            "date": "2026-07-01",
+            "opponent": "Rival",
+            "mode": "compete",
+            "game_type": "postseason",
+            "external_source": "spordle",
+            "external_game_id": "910001",
+        },
+    )
+    game_id = game_res.json()["id"]
+
+    with patch(
+        "app.league_integrations.lfbq_spordle.intel._client.get_schedule_games",
+        side_effect=_schedule_games_side_effect,
+    ):
+        res = await client.get(f"/games/{game_id}/opponent-intel")
+
+    payload = res.json()
+    assert res.status_code == 200
+    assert payload["available"] is True
+    assert payload["opponent_name"] == "RIVAL STARS"
+    assert payload["standing"]["losses"] == 3
+
+
+@pytest.mark.asyncio
+async def test_upcoming_intel_returns_all_games(client: AsyncClient, session):
+    team = session.get(Team, 1)
+    team.integration_version = "lfbq_spordle"
+    team.integration_config_json = json.dumps(
+        {
+            "our_spordle_team_id": 167495,
+            "page_slug": "ligue-feminine-de-baseball-du-quebec",
+            "schedules": [{"schedule_id": 193095, "game_type": "season"}],
+        }
+    )
+    session.add(team)
+    session.commit()
+
+    schedule = load_fixture("schedule_games.json")
+    created_ids = []
+    for offset, game_date in enumerate(["2026-06-01", "2026-06-08", "2026-06-15", "2026-06-22", "2026-06-29"]):
+        game_res = await client.post(
+            "/games/",
+            json={"date": game_date, "opponent": f"Rival {offset}", "mode": "compete"},
+        )
+        created_ids.append(game_res.json()["id"])
+
+    with patch(
+        "app.league_integrations.lfbq_spordle.intel._client.get_schedule_games",
+        return_value=schedule,
+    ), patch("app.game_intel.date") as mock_date:
+        mock_date.today.return_value = date(2026, 5, 15)
+        res = await client.get("/games/upcoming-intel")
+
+    payload = res.json()
+    assert res.status_code == 200
+    assert len(payload) == 5
+    assert {row["id"] for row in payload} == set(created_ids)
+    assert all("intel" in row for row in payload)
 
 
 @pytest.mark.asyncio

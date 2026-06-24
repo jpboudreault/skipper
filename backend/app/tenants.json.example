@@ -45,11 +45,22 @@
     "default_league": "Local League",
     "integration_version": "lfbq_spordle",
     "integration_config": {
-      "schedule_id": 0,
       "our_spordle_team_id": 0,
       "page_slug": "your-league-slug",
       "page_id": "00000000-0000-0000-0000-000000000000",
       "locale": "fr",
+      "schedules": [
+        {
+          "schedule_id": 0,
+          "game_type": "season",
+          "label": "Regular season"
+        },
+        {
+          "schedule_id": 0,
+          "game_type": "postseason",
+          "label": "Playoffs"
+        }
+      ],
       "standings_points": {
         "win": 2,
         "draw": 1,

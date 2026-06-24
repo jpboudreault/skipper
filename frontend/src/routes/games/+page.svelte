@@ -83,15 +83,19 @@
 		return intelByGameId[gameId] ?? null;
 	}
 
+	function gameTypeBadgeClass(gameType: string) {
+		if (gameType === 'postseason') return 'badge-secondary';
+		if (gameType === 'tournament') return 'badge-warning';
+		return 'badge-neutral';
+	}
+
 	async function fetchUpcomingIntel() {
-		const activeId = sessionStorage.getItem('activeTeamId');
-		if (!activeId) return;
 		try {
-			const res = await apiFetch(`/teams/${activeId}/stats/dashboard`);
+			const res = await apiFetch('/games/upcoming-intel');
 			if (!res.ok) return;
-			const dashboard = await res.json();
+			const upcomingWithIntel = await res.json();
 			const map: Record<number, any> = {};
-			for (const game of dashboard.upcoming_games ?? []) {
+			for (const game of upcomingWithIntel) {
 				if (game.id != null) map[game.id] = game.intel;
 			}
 			intelByGameId = map;
@@ -212,10 +216,15 @@
 					<span class="text-base-content/60 text-sm">#{game.game_number}</span>
 				{/if}
 			</div>
-			<span
-				class="badge badge-sm {game.home_away === 'H' ? 'badge-neutral' : 'badge-outline'}"
-				>{game.home_away === 'H' ? $t('common_home') : $t('common_away')}</span
-			>
+			<div class="flex flex-wrap items-center gap-2">
+				<span
+					class="badge badge-sm {game.home_away === 'H' ? 'badge-neutral' : 'badge-outline'}"
+					>{game.home_away === 'H' ? $t('common_home') : $t('common_away')}</span
+				>
+				<span class="badge badge-sm {gameTypeBadgeClass(game.game_type)}">
+					{$t(gameTypeKeys[game.game_type] ?? game.game_type)}
+				</span>
+			</div>
 		</div>
 		<a
 			href="/games/{game.id}"

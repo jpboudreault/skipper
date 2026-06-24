@@ -40,17 +40,10 @@ def pitching_plan(team_id: int, session: Session = Depends(get_session), current
 from datetime import date
 from sqlmodel import or_, select
 from app.models import Game, Team
+from app.game_intel import serialize_games_with_intel
 
 def _serialize_upcoming_games(games: List[Game], team: Team) -> List[dict]:
-    from app.league_integrations import get_opponent_intel
-    from app.league_integrations.lfbq_spordle.intel import intel_dashboard_summary
-
-    result = []
-    for game in games:
-        payload = game.model_dump()
-        payload["intel"] = intel_dashboard_summary(get_opponent_intel(game, team))
-        result.append(payload)
-    return result
+    return serialize_games_with_intel(games, team)
 
 @router.get("/dashboard")
 def team_dashboard(team_id: int, session: Session = Depends(get_session), current_user: User = Depends(get_current_user)) -> Dict[str, Any]:

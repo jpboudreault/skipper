@@ -114,6 +114,18 @@ def sync_schedule(session: Session = Depends(get_session), active_team: Team = D
         raise_api_error(400, "schedule_sync_not_configured")
     return result
 
+
+@router.get("/upcoming-intel")
+def upcoming_games_intel(
+    session: Session = Depends(get_session),
+    active_team: Team = Depends(get_active_team),
+):
+    from app.game_intel import serialize_games_with_intel, upcoming_games_for_team
+
+    games = upcoming_games_for_team(session, active_team.id)
+    return serialize_games_with_intel(games, active_team)
+
+
 @router.get("/{game_id}", response_model=Game)
 def get_game(game: Game = Depends(get_active_game)):
     return game
