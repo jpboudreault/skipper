@@ -171,6 +171,7 @@ def run_migrations():
             ("team", "default_league", "ALTER TABLE team ADD COLUMN default_league TEXT"),
             ("team", "lineup_print_version", "ALTER TABLE team ADD COLUMN lineup_print_version TEXT NOT NULL DEFAULT 'baseball_quebec'"),
             ("team", "scoresheet_version", "ALTER TABLE team ADD COLUMN scoresheet_version TEXT NOT NULL DEFAULT 'baseball_quebec'"),
+            ("game", "game_type", "ALTER TABLE game ADD COLUMN game_type TEXT NOT NULL DEFAULT 'season'"),
             ("game", "league", "ALTER TABLE game ADD COLUMN league TEXT"),
             ("game", "external_source", "ALTER TABLE game ADD COLUMN external_source TEXT"),
             ("game", "external_game_id", "ALTER TABLE game ADD COLUMN external_game_id TEXT"),
