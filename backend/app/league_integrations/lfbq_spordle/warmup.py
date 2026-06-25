@@ -58,6 +58,8 @@ def warmup_team_dashboard(session: Session, team: Team, *, limit: int = 3) -> di
         if game.external_game_id:
             continue
         for schedule in schedules:
+            if schedule["game_type"] != game.game_type:
+                continue
             schedule_games = _client.get_schedule_games(
                 schedule["schedule_id"],
                 cache_ttl_seconds=cache_ttl_seconds,

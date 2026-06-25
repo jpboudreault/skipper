@@ -153,12 +153,14 @@ def resolve_spordle_game(
             candidates = numbered
     if len(candidates) == 1:
         return candidates[0]
-    return candidates[0]
+    return None
 
 
 def pick_existing_game(
     existing_games: List[Game],
     spordle_game: dict,
+    *,
+    expected_game_type: Optional[str] = None,
 ) -> Optional[Game]:
     external_id = str(spordle_game["id"])
     for game in existing_games:
@@ -170,6 +172,8 @@ def pick_existing_game(
         g
         for g in existing_games
         if (g.date.isoformat() if isinstance(g.date, date) else str(g.date)) == spordle_date
+        and not g.external_game_id
+        and (expected_game_type is None or g.game_type == expected_game_type)
     ]
     if not date_matches:
         return None
@@ -180,9 +184,6 @@ def pick_existing_game(
             if game.game_number == number:
                 return game
 
-    unmatched = [g for g in date_matches if not g.external_game_id]
-    if len(unmatched) == 1:
-        return unmatched[0]
     if len(date_matches) == 1:
         return date_matches[0]
     return None
