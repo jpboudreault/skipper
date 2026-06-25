@@ -40,6 +40,8 @@ def _apply_spordle_fields(game: Game, fields: dict) -> None:
     for key, value in fields.items():
         if value is None:
             continue
+        if key == "external_game_id" and game.external_game_id and game.external_game_id != value:
+            continue
         if key in ("result_runs_for", "result_runs_against"):
             if getattr(game, key) is None:
                 setattr(game, key, value)
@@ -84,7 +86,11 @@ def sync_team_schedule(session: Session, team: Team) -> dict:
             )
             if fields.get("date"):
                 fields["date"] = date_type.fromisoformat(fields["date"])
-            match = pick_existing_game(existing_games, spordle_game)
+            match = pick_existing_game(
+                existing_games,
+                spordle_game,
+                expected_game_type=schedule["game_type"],
+            )
             if match:
                 had_external = bool(match.external_game_id)
                 _apply_spordle_fields(match, fields)

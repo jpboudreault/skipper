@@ -246,6 +246,25 @@ def test_resolve_spordle_game_by_date():
     assert resolved["id"] == 900001
 
 
+def test_resolve_spordle_game_returns_none_for_ambiguous_date():
+    games = load_fixture("schedule_games.json")
+    duplicate = {**games[-1], "id": 900002, "number": "2"}
+    ambiguous_games = [*games, duplicate]
+    game = Game(
+        team_id=1,
+        date=date(2026, 6, 1),
+        opponent="Rival",
+        mode="compete",
+    )
+
+    assert resolve_spordle_game(game, ambiguous_games, 167495) is None
+
+    game.game_number = "2"
+    resolved = resolve_spordle_game(game, ambiguous_games, 167495)
+    assert resolved is not None
+    assert resolved["id"] == 900002
+
+
 def test_resolve_opponent_by_name():
     games = load_fixture("schedule_games.json")
     game = Game(
@@ -364,6 +383,55 @@ async def test_sync_schedule_endpoint(client: AsyncClient, session):
     list_res = await client.get("/games/")
     synced = list_res.json()
     assert any(g.get("external_game_id") for g in synced)
+
+
+@pytest.mark.asyncio
+async def test_sync_same_date_doubleheader_creates_separate_games(client: AsyncClient, session):
+    team = session.get(Team, 1)
+    team.integration_version = "lfbq_spordle"
+    team.integration_config_json = json.dumps(
+        {"schedule_id": 193095, "our_spordle_team_id": 167495}
+    )
+    session.add(team)
+    session.commit()
+
+    schedule = [
+        {
+            "id": 930001,
+            "date": "2026-06-01",
+            "number": "1",
+            "homeTeamId": 167495,
+            "awayTeamId": 162670,
+            "homeTeam": {"id": 167495, "name": "BLUE EXPOS"},
+            "awayTeam": {"id": 162670, "name": "RIVAL STARS"},
+            "teamStats": [],
+        },
+        {
+            "id": 930002,
+            "date": "2026-06-01",
+            "number": "2",
+            "homeTeamId": 167495,
+            "awayTeamId": 170000,
+            "homeTeam": {"id": 167495, "name": "BLUE EXPOS"},
+            "awayTeam": {"id": 170000, "name": "CARDINALS"},
+            "teamStats": [],
+        },
+    ]
+
+    with patch(
+        "app.league_integrations.lfbq_spordle.sync._client.get_schedule_games",
+        return_value=schedule,
+    ):
+        res = await client.post("/games/sync-schedule")
+
+    payload = res.json()
+    assert res.status_code == 200
+    assert payload["created"] == 2
+    assert payload["updated"] == 0
+
+    list_res = await client.get("/games/")
+    external_ids = {game.get("external_game_id") for game in list_res.json()}
+    assert {"930001", "930002"}.issubset(external_ids)
 
 
 @pytest.mark.asyncio
@@ -490,6 +558,68 @@ async def test_sync_multiple_schedules_sets_game_type(client: AsyncClient, sessi
     postseason = [g for g in synced if g.get("game_type") == "postseason"]
     assert len(postseason) == 1
     assert postseason[0]["external_game_id"] == "910001"
+
+
+@pytest.mark.asyncio
+async def test_sync_multiple_schedules_does_not_reuse_cross_type_date_match(client: AsyncClient, session):
+    team = session.get(Team, 1)
+    team.integration_version = "lfbq_spordle"
+    team.integration_config_json = json.dumps(
+        {
+            "our_spordle_team_id": 167495,
+            "schedules": [
+                {"schedule_id": 193095, "game_type": "season"},
+                {"schedule_id": 195112, "game_type": "postseason"},
+            ],
+        }
+    )
+    session.add(team)
+    session.commit()
+
+    manual = Game(
+        team_id=team.id,
+        date=date(2026, 7, 1),
+        opponent="Playoff Rival",
+        mode="compete",
+        game_type="postseason",
+    )
+    session.add(manual)
+    session.commit()
+    session.refresh(manual)
+
+    season_same_date = {
+        "id": 930010,
+        "date": "2026-07-01",
+        "scheduleId": 193095,
+        "number": "S1",
+        "homeTeamId": 167495,
+        "awayTeamId": 170000,
+        "homeTeam": {"id": 167495, "name": "BLUE EXPOS"},
+        "awayTeam": {"id": 170000, "name": "CARDINALS"},
+        "teamStats": [],
+    }
+
+    def side_effect(schedule_id: int, **_kwargs):
+        if schedule_id == 193095:
+            return [season_same_date]
+        if schedule_id == 195112:
+            return [PLAYOFF_GAME]
+        return []
+
+    with patch(
+        "app.league_integrations.lfbq_spordle.sync._client.get_schedule_games",
+        side_effect=side_effect,
+    ):
+        res = await client.post("/games/sync-schedule")
+
+    assert res.status_code == 200
+
+    updated_manual = await client.get(f"/games/{manual.id}")
+    assert updated_manual.json()["external_game_id"] == "910001"
+
+    list_res = await client.get("/games/")
+    external_ids = {game.get("external_game_id") for game in list_res.json()}
+    assert {"930010", "910001"}.issubset(external_ids)
 
 
 @pytest.mark.asyncio

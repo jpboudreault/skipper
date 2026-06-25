@@ -84,7 +84,9 @@ def resolve_spordle_game_across_schedules(
 ) -> Optional[dict]:
     from app.league_integrations.lfbq_spordle.mapping import resolve_spordle_game
 
-    for schedule in schedules:
+    matching_schedules = [schedule for schedule in schedules if schedule["game_type"] == game.game_type]
+    ordered_schedules = matching_schedules or schedules
+    for schedule in ordered_schedules:
         schedule_games = client.get_schedule_games(
             schedule["schedule_id"],
             cache_ttl_seconds=cache_ttl_seconds,
