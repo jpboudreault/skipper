@@ -37,6 +37,12 @@ def cleanup_lineup_beyond_innings(game: Game, max_inning: int, session: Session)
             avail.injury_inning = None
             session.add(avail)
 
+def delete_game_dependencies(game_id: int, session: Session) -> None:
+    for model in (Availability, BattingLine, PitchingAppearance, Lineup):
+        rows = session.exec(select(model).where(model.game_id == game_id)).all()
+        for row in rows:
+            session.delete(row)
+
 def get_active_game(
     game_id: int,
     session: Session = Depends(get_session),
@@ -170,6 +176,7 @@ def get_game_opponent_intel(
 
 @router.delete("/{game_id}")
 def delete_game(game: Game = Depends(get_active_game), session: Session = Depends(get_session)):
+    delete_game_dependencies(game.id, session)
     session.delete(game)
     session.commit()
     return {"ok": True}

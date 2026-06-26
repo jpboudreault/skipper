@@ -1,5 +1,8 @@
 import pytest
 from httpx import AsyncClient
+from sqlmodel import select
+
+from app.models import Availability, BattingLine, Lineup, PitchingAppearance
 
 @pytest.mark.asyncio
 async def test_game_crud(client: AsyncClient, session):
@@ -45,6 +48,65 @@ async def test_game_crud(client: AsyncClient, session):
     assert del_res.status_code == 200
     list_res2 = await client.get("/games/")
     assert len(list_res2.json()) == 0
+
+
+@pytest.mark.asyncio
+async def test_delete_game_removes_dependent_rows_before_id_reuse(client: AsyncClient, session):
+    player_res = await client.post("/players/", json={
+        "first_name": "Row", "last_name": "Owner", "jersey": 12, "active": True
+    })
+    player = player_res.json()
+
+    game_res = await client.post("/games/", json={
+        "date": "2026-06-01", "mode": "compete"
+    })
+    assert game_res.status_code == 200
+    game = game_res.json()
+
+    await client.put(f"/games/{game['id']}/batting", json=[{
+        "player_id": player["id"],
+        "singles": 1,
+    }])
+    await client.put(f"/games/{game['id']}/pitching", json=[{
+        "player_id": player["id"],
+        "inning_entered": 1.0,
+        "inning_exited": 2.0,
+        "ip_outs": 3,
+    }])
+    await client.put(f"/games/{game['id']}/lineup", json=[{
+        "inning": 1,
+        "player_id": player["id"],
+        "position": 1,
+        "locked": True,
+    }])
+
+    del_res = await client.delete(f"/games/{game['id']}")
+    assert del_res.status_code == 200
+
+    assert session.exec(select(Availability).where(Availability.game_id == game["id"])).all() == []
+    assert session.exec(select(BattingLine).where(BattingLine.game_id == game["id"])).all() == []
+    assert session.exec(select(PitchingAppearance).where(PitchingAppearance.game_id == game["id"])).all() == []
+    assert session.exec(select(Lineup).where(Lineup.game_id == game["id"])).all() == []
+
+    next_game_res = await client.post("/games/", json={
+        "date": "2026-06-02", "mode": "compete"
+    })
+    assert next_game_res.status_code == 200
+    next_game = next_game_res.json()
+    assert next_game["id"] == game["id"]
+
+    batting_res = await client.get(f"/games/{next_game['id']}/batting")
+    assert batting_res.status_code == 200
+    assert batting_res.json() == []
+
+    availability_res = await client.get(f"/games/{next_game['id']}/availability")
+    assert availability_res.status_code == 200
+    assert availability_res.json() == [{
+        "game_id": next_game["id"],
+        "player_id": player["id"],
+        "status": "available",
+        "injury_inning": None,
+    }]
 
 
 @pytest.mark.asyncio
