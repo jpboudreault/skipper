@@ -357,6 +357,45 @@ async def test_solve_lock_validations(client: AsyncClient, session):
 
 
 @pytest.mark.asyncio
+async def test_failed_solve_preserves_lineup_cells_for_unavailable_players(client: AsyncClient, session):
+    await client.post("/teams/", json={
+        "name": "Rollback Team", "season": "2026", "innings_per_game": 5,
+        "max_pitcher_innings_per_game": 2, "max_pitcher_innings_per_7_days": 4,
+        "pitch_count_rules_json": "{}"
+    })
+
+    player_ids = []
+    for i in range(10):
+        p_res = await client.post("/players/", json={
+            "first_name": f"P{i}", "last_name": "Player", "jersey": 30 + i, "active": True
+        })
+        player_ids.append(p_res.json()["id"])
+
+    game_res = await client.post("/games/", json={
+        "date": "2026-06-01", "mode": "compete"
+    })
+    game = game_res.json()
+
+    absent_player_id = player_ids[9]
+    await client.put(f"/games/{game['id']}/availability", json=[
+        {"player_id": absent_player_id, "status": "absent"}
+    ])
+
+    await client.put(f"/games/{game['id']}/lineup", json=[
+        {"inning": 1, "player_id": player_ids[0], "position": 1, "locked": True},
+        {"inning": 1, "player_id": player_ids[1], "position": 1, "locked": True},
+        {"inning": 1, "player_id": absent_player_id, "position": 0, "locked": True},
+    ])
+
+    solve_res = await client.post(f"/games/{game['id']}/solve")
+    assert solve_res.status_code == 400
+
+    lineup_res = await client.get(f"/games/{game['id']}/lineup")
+    lineup_cells = lineup_res.json()
+    assert any(c["player_id"] == absent_player_id for c in lineup_cells)
+
+
+@pytest.mark.asyncio
 async def test_lineup_inning_count(client: AsyncClient, session):
     team_res = await client.post("/teams/", json={
         "name": "Inning Team", "season": "2025", "innings_per_game": 6,
