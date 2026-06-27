@@ -24,6 +24,10 @@ MAX_LINEUP_INNINGS = 12
 def resolve_lineup_innings(game: Game, team: Team) -> int:
     return game.innings_played or team.innings_per_game
 
+def is_aa_or_aaa(team: Team) -> bool:
+    level = (team.classe or "").strip().upper()
+    return level in {"AA", "AAA"}
+
 def cleanup_lineup_beyond_innings(game: Game, max_inning: int, session: Session) -> None:
     extra_cells = session.exec(
         select(Lineup).where(Lineup.game_id == game.id, Lineup.inning > max_inning)
@@ -629,23 +633,7 @@ def solve_game_lineup(game: Game = Depends(get_active_game), session: Session = 
                         remaining=remaining_7_days,
                     )
 
-    # 4. H8 Catcher -> Pitcher rest violation (Catcher in Inning i, Pitcher in Inning i+1)
-    for p in available_players:
-        p_locks = [lc for lc in existing_lineup if lc.locked and lc.player_id == p.id]
-        p_name = f"{p.first_name} {p.last_name}"
-        for c in p_locks:
-            if c.position == 2:  # Catcher
-                next_lock = next((nl for nl in p_locks if nl.inning == c.inning + 1), None)
-                if next_lock and next_lock.position == 1:  # Pitcher next inning
-                    raise_api_error(
-                        400,
-                        "catcher_pitcher_rest",
-                        player_name=p_name,
-                        catcher_inning=c.inning,
-                        pitcher_inning=c.inning + 1,
-                    )
-
-    # 5. H9 Forbidden positions or substitutes pitching
+    # 4. H9 Forbidden positions or substitutes pitching
     for p in available_players:
         forbidden = forbidden_by_player.get(p.id, set())
         if p.is_substitute:
@@ -663,7 +651,7 @@ def solve_game_lineup(game: Game = Depends(get_active_game), session: Session = 
                     )
                 raise_api_error(
                     400,
-                    "forbidden_position",
+                        "forbidden_position",
                     player_name=p_name,
                     position_id=c.position,
                     inning=c.inning,
@@ -675,6 +663,8 @@ def solve_game_lineup(game: Game = Depends(get_active_game), session: Session = 
         max_pitcher_innings_per_7_days=team.max_pitcher_innings_per_7_days,
         late_inning_weight=team.late_inning_weight,
         mode=game.mode,
+        strict_bench_fairness=not is_aa_or_aaa(team),
+        h8_is_soft=True,
     )
 
     result = solve_lineup(player_infos, config, locked)

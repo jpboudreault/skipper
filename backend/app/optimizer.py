@@ -45,6 +45,8 @@ class OptimizerConfig:
     max_pitcher_innings_per_7_days: int
     late_inning_weight: float
     mode: str                              # 'compete' or 'develop'
+    strict_bench_fairness: bool = False    # hard fairness/rotation (non AA/AAA)
+    h8_is_soft: bool = False               # catcher->pitcher next inning handled as penalty
 
 
 @dataclass
@@ -59,6 +61,8 @@ class SolverResult:
     assignments: List[dict]   # [{inning, player_id, position}, ...]
     objective_value: float
     status: str               # 'optimal', 'feasible', 'infeasible'
+
+EARLY_INFIELD_SOFT_PENALTY = 8000
 
 
 def solve_lineup(
@@ -158,11 +162,20 @@ def solve_lineup(
             for inn in range(num_innings):
                 model.Add(x[pi, inn, 1] == 0)
 
-    # H8: Catcher -> pitcher rest (can't pitch the inning after catching)
+    # H8: Catcher -> pitcher rest (cannot pitch the inning after catching)
+    # In strict mode this remains a hard constraint; when configured soft, violations are penalized.
+    h8_violation_vars = []
     for pi in range(num_players):
         for inn in range(num_innings - 1):
-            # If catching in inning inn, can't pitch in inning inn+1
-            model.Add(x[pi, inn + 1, 1] == 0).OnlyEnforceIf(x[pi, inn, 2])
+            if config.h8_is_soft:
+                # violation is 1 only when player catches in inning i and pitches in inning i+1
+                v = model.NewBoolVar(f"h8_violation_{pi}_{inn}")
+                model.Add(v <= x[pi, inn, 2])
+                model.Add(v <= x[pi, inn + 1, 1])
+                model.Add(v >= x[pi, inn, 2] + x[pi, inn + 1, 1] - 1)
+                h8_violation_vars.append(v)
+            else:
+                model.Add(x[pi, inn + 1, 1] == 0).OnlyEnforceIf(x[pi, inn, 2])
 
     # H9: Forbidden positions
     for pi, p in enumerate(players):
@@ -178,6 +191,65 @@ def solve_lineup(
             inn = lock.inning - 1  # convert to 0-indexed
             if 0 <= inn < num_innings and lock.position in positions:
                 model.Add(x[pi, inn, lock.position] == 1)
+
+    # H4 strict bench fairness (non AA/AAA categories)
+    if config.strict_bench_fairness:
+        # 1) If a player sits inning 1 and is healthy inning 2, they must play inning 2.
+        if num_innings >= 2:
+            for pi, p in enumerate(players):
+                if p.injury_inning is not None and p.injury_inning <= 2:
+                    continue
+                model.Add(x[pi, 1, 0] == 0).OnlyEnforceIf(x[pi, 0, 0])
+
+        # 2) No back-to-back bench innings for healthy players.
+        for pi, p in enumerate(players):
+            for inn in range(num_innings - 1):
+                if p.injury_inning is not None and p.injury_inning <= inn + 1:
+                    continue
+                if p.injury_inning is not None and p.injury_inning <= inn + 2:
+                    continue
+                model.Add(x[pi, inn, 0] + x[pi, inn + 1, 0] <= 1)
+
+        # 3) Prefix fairness: by any inning, bench counts between healthy players differ by at most 1.
+        # This enforces "no one benches again before the others have had their turn."
+        # Exception: when the comparator player is currently on the mound, this check is relaxed.
+        for inn in range(num_innings):
+            for pi, p in enumerate(players):
+                if p.injury_inning is not None and p.injury_inning <= inn + 1:
+                    continue
+                left = sum(x[pi, k, 0] for k in range(inn + 1))
+                for pj, q in enumerate(players):
+                    if pi == pj:
+                        continue
+                    if q.injury_inning is not None and q.injury_inning <= inn + 1:
+                        continue
+                    right = sum(x[pj, k, 0] for k in range(inn + 1))
+                    model.Add(left <= right + 1).OnlyEnforceIf(x[pj, inn, 1].Not())
+
+    # Shared soft preference: each player should get at least one infield inning
+    # (positions 1..6) in the first 4 innings, when they are healthy/active.
+    infield_positions = list(range(1, 7))
+    early_window = min(4, num_innings)
+    early_infield_missing_vars = []
+    for pi, p in enumerate(players):
+        eligible_early_innings = [
+            inn for inn in range(early_window)
+            if p.injury_inning is None or p.injury_inning > inn + 1
+        ]
+        if not eligible_early_innings:
+            continue
+
+        early_infield_terms = [
+            x[pi, inn, pos]
+            for inn in eligible_early_innings
+            for pos in infield_positions
+        ]
+        played_early_infield = model.NewBoolVar(f"early_infield_{pi}")
+        model.AddMaxEquality(played_early_infield, early_infield_terms)
+
+        miss_early_infield = model.NewBoolVar(f"miss_early_infield_{pi}")
+        model.Add(miss_early_infield + played_early_infield == 1)
+        early_infield_missing_vars.append(miss_early_infield)
 
     # ========== OBJECTIVE ==========
 
@@ -196,36 +268,18 @@ def solve_lineup(
                     scaled = int(score * weight * 100)
                     objective_terms.append(scaled * x[pi, inn, pos])
 
-        # Bench fairness: penalize variance in bench innings
-        bench_counts = []
-        for pi, p in enumerate(players):
-            if p.injury_inning is not None:
-                continue
-            bc = model.NewIntVar(0, num_innings, f"bench_count_{pi}")
-            model.Add(bc == sum(x[pi, inn, 0] for inn in range(num_innings)))
-            bench_counts.append(bc)
-
-        if bench_counts:
-            max_bench = model.NewIntVar(0, num_innings, "max_bench")
-            model.AddMaxEquality(max_bench, bench_counts)
-
-            min_bench = model.NewIntVar(0, num_innings, "min_bench")
-            model.AddMinEquality(min_bench, bench_counts)
-
-            bench_spread = model.NewIntVar(0, num_innings, "bench_spread")
-            model.Add(bench_spread == max_bench - min_bench)
-        else:
-            bench_spread = model.NewIntVar(0, 0, "bench_spread")
-            max_bench = model.NewIntVar(0, 0, "max_bench")
-
-        # Objective: maximize quality - penalize unfair bench distribution
+        # Objective: maximize fielding quality (plus optional soft H8 penalty)
         total_quality = model.NewIntVar(-1000000, 1000000, "total_quality")
         model.Add(total_quality == sum(objective_terms))
 
-        # Combined: quality - bench_spread * 10000 - max_bench * 500
-        # Heavily penalize spread to ensure fair rotation
+        # Combined: quality minus soft catcher->pitcher-rest violations.
         combined = model.NewIntVar(-10000000, 10000000, "combined")
-        model.Add(combined == total_quality - bench_spread * 10000 - max_bench * 500)
+        h8_penalty = sum(h8_violation_vars) * 20000 if h8_violation_vars else 0
+        early_infield_penalty = (
+            sum(early_infield_missing_vars) * EARLY_INFIELD_SOFT_PENALTY
+            if early_infield_missing_vars else 0
+        )
+        model.Add(combined == total_quality - h8_penalty - early_infield_penalty)
         model.Maximize(combined)
 
     else:
@@ -248,30 +302,13 @@ def solve_lineup(
                 model.AddMaxEquality(played_pos, [x[pi, inn, pos] for inn in range(num_innings)])
                 objective_terms.append(played_pos * 200)  # variety bonus
 
-        # Bench fairness (same as compete)
-        bench_counts = []
-        for pi, p in enumerate(players):
-            if p.injury_inning is not None:
-                continue
-            bc = model.NewIntVar(0, num_innings, f"bench_count_dev_{pi}")
-            model.Add(bc == sum(x[pi, inn, 0] for inn in range(num_innings)))
-            bench_counts.append(bc)
-
-        if bench_counts:
-            max_bench = model.NewIntVar(0, num_innings, "max_bench_dev")
-            model.AddMaxEquality(max_bench, bench_counts)
-
-            min_bench = model.NewIntVar(0, num_innings, "min_bench_dev")
-            model.AddMinEquality(min_bench, bench_counts)
-
-            bench_spread = model.NewIntVar(0, num_innings, "bench_spread_dev")
-            model.Add(bench_spread == max_bench - min_bench)
-        else:
-            bench_spread = model.NewIntVar(0, 0, "bench_spread_dev")
-            max_bench = model.NewIntVar(0, 0, "max_bench_dev")
-
         combined = model.NewIntVar(-10000000, 10000000, "combined_dev")
-        model.Add(combined == sum(objective_terms) - bench_spread * 10000 - max_bench * 500)
+        h8_penalty = sum(h8_violation_vars) * 20000 if h8_violation_vars else 0
+        early_infield_penalty = (
+            sum(early_infield_missing_vars) * EARLY_INFIELD_SOFT_PENALTY
+            if early_infield_missing_vars else 0
+        )
+        model.Add(combined == sum(objective_terms) - h8_penalty - early_infield_penalty)
         model.Maximize(combined)
 
     # ========== SOLVE ==========
