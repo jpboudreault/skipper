@@ -33,7 +33,7 @@
 	let subRows = $derived(Array.from({ length: 9 }, (_, i) => subs[i] || null));
 	const subLetters = ['A', 'B', 'C', 'D', 'E', 'F', 'G', 'H', 'I'];
 
-	let coaches = $derived(players.filter((p: any) => p.is_coach).sort((a: any, b: any) => {
+	let coaches = $derived(players.filter((p: any) => p.is_coach && !absentIds.has(p.id)).sort((a: any, b: any) => {
 		if (a.coach_type === 'head') return -1;
 		if (b.coach_type === 'head') return 1;
 		return 0;
@@ -41,10 +41,9 @@
 	let coachRows = $derived(Array.from({ length: 4 }, (_, i) => coaches[i] || null));
 </script>
 
-<!-- Only visible during printing -->
-<div class="hidden print:block printable-lineup font-sans text-black bg-white">
-	<!-- Outline container simulating the paper size - scaled down to fit 3/4 page -->
-	<div class="border-2 border-blue-600 w-1/2 p-1 bg-blue-50/30 text-[11px] leading-tight">
+<!-- Single batting-order card; rendered twice so the sheet can be cut in half -->
+{#snippet lineupCard()}
+	<div class="border-2 border-blue-600 flex-1 min-w-0 p-1 bg-blue-50/30 text-[11px] leading-tight">
 		<h1 class="text-center font-bold text-blue-700 text-lg py-1 tracking-wide uppercase">Ordre des Frappeurs</h1>
 
 		<!-- HEADER TABLE -->
@@ -179,6 +178,14 @@
 				</div>
 			</div>
 		</div>
+	</div>
+{/snippet}
+
+<!-- Printable batting-order card (visibility controlled by parent wrapper) -->
+<div class="printable-lineup font-sans text-black bg-white">
+	<div class="flex items-start gap-1 divide-x-2 divide-dashed divide-gray-400">
+		{@render lineupCard()}
+		{@render lineupCard()}
 	</div>
 </div>
 

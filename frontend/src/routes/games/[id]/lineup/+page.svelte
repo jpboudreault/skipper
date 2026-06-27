@@ -3,6 +3,7 @@
 	import { onMount } from 'svelte';
 	import { apiFetch } from '$lib/api';
 	import { getLineupPrintComponent } from '$lib/league_formats';
+	import DefensivePositionsPrint from '$lib/league_formats/lineup/defensive_positions.svelte';
 	import { t, translate, statusLabel } from '$lib/i18n';
 
 	let players: any[] = $state([]);
@@ -20,6 +21,7 @@
 	let autoSaving = $state(false);
 	let injuryMode = $state(false);
 	let changingInnings = $state(false);
+	let printTarget: 'lineup' | 'defense' | null = $state(null);
 
 	const MIN_INNINGS = 1;
 	const MAX_INNINGS = 12;
@@ -69,7 +71,17 @@
 		}
 	}
 
-	onMount(fetchData);
+	onMount(() => {
+		fetchData();
+		const resetPrintTarget = () => { printTarget = null; };
+		window.addEventListener('afterprint', resetPrintTarget);
+		return () => window.removeEventListener('afterprint', resetPrintTarget);
+	});
+
+	function triggerPrint(target: 'lineup' | 'defense') {
+		printTarget = target;
+		requestAnimationFrame(() => window.print());
+	}
 
 	function getAvailablePlayers(): any[] {
 		const absentIds = new Set(
@@ -437,8 +449,11 @@
 				<button onclick={() => injuryMode = !injuryMode} class="btn btn-sm shadow-md gap-1 {injuryMode ? 'btn-error text-error-content' : 'btn-outline border-base-300'}">
 					🩹 {injuryMode ? $t('lineup_exit_injury_mode') : $t('lineup_injury_mode')}
 				</button>
-				<button onclick={() => window.print()} class="btn btn-neutral btn-sm shadow-md gap-1">
+				<button onclick={() => triggerPrint('lineup')} class="btn btn-neutral btn-sm shadow-md gap-1">
 					🖨️ {$t('lineup_print_lineup')}
+				</button>
+				<button onclick={() => triggerPrint('defense')} class="btn btn-neutral btn-sm shadow-md gap-1">
+					🛡️ {$t('lineup_print_defense')}
 				</button>
 				{#if hasUnlockedValues}
 					<button onclick={clearUnlocked} class="btn btn-warning btn-sm shadow-md gap-1">
@@ -624,14 +639,28 @@
 	</div>
 </div>
 
-<LineupPrintCard 
-	{game}
-	{team}
-	{players}
-	{battingOrder}
-	{lineup}
-	{availability}
-/>
+<div class="hidden {printTarget === 'lineup' ? 'print:block' : 'print:hidden'}">
+	<LineupPrintCard 
+		{game}
+		{team}
+		{players}
+		{battingOrder}
+		{lineup}
+		{availability}
+	/>
+</div>
+
+<div class="hidden {printTarget === 'defense' ? 'print:block' : 'print:hidden'}">
+	<DefensivePositionsPrint
+		{game}
+		{team}
+		{players}
+		{battingOrder}
+		{lineup}
+		{availability}
+		numInnings={numInnings}
+	/>
+</div>
 
 <style>
 	:global(td.locked-cell) {
