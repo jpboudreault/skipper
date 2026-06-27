@@ -500,7 +500,9 @@ def solve_game_lineup(game: Game = Depends(get_active_game), session: Session = 
     for lc in existing_lineup:
         if lc.player_id not in available_ids:
             session.delete(lc)
-    session.commit()
+    # Make cleanup visible to the validation query below without committing partial
+    # changes before the solve request is known to be valid.
+    session.flush()
 
     # Re-fetch the cleaned lineup to build locked cells list
     existing_lineup = session.exec(select(Lineup).where(Lineup.game_id == game.id)).all()
