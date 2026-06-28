@@ -411,13 +411,6 @@ async def test_solve_lock_validations(client: AsyncClient, session):
 
 @pytest.mark.asyncio
 async def test_solve_rejects_locks_over_same_day_pitcher_cap(client: AsyncClient, session):
-    team_res = await client.post("/teams/", json={
-        "name": "Daily Cap Team", "season": "2026", "innings_per_game": 5,
-        "max_pitcher_innings_per_game": 2, "max_pitcher_innings_per_7_days": 4,
-        "late_inning_weight": 1.5, "language": "en", "pitch_count_rules_json": "{}"
-    })
-    team = team_res.json()
-
     player_ids = []
     for i in range(9):
         p_res = await client.post("/players/", json={
@@ -426,7 +419,7 @@ async def test_solve_rejects_locks_over_same_day_pitcher_cap(client: AsyncClient
         player_ids.append(p_res.json()["id"])
 
     previous_game = Game(
-        team_id=team["id"],
+        team_id=1,
         date=date(2026, 6, 1),
         mode="compete",
         game_type="season",
@@ -460,13 +453,6 @@ async def test_solve_rejects_locks_over_same_day_pitcher_cap(client: AsyncClient
 
 @pytest.mark.asyncio
 async def test_solve_does_not_add_pitching_beyond_same_day_remainder(client: AsyncClient, session):
-    team_res = await client.post("/teams/", json={
-        "name": "Daily Remainder Team", "season": "2026", "innings_per_game": 5,
-        "max_pitcher_innings_per_game": 2, "max_pitcher_innings_per_7_days": 4,
-        "late_inning_weight": 1.5, "language": "en", "pitch_count_rules_json": "{}"
-    })
-    team = team_res.json()
-
     player_ids = []
     for i in range(10):
         p_res = await client.post("/players/", json={
@@ -483,7 +469,7 @@ async def test_solve_does_not_add_pitching_beyond_same_day_remainder(client: Asy
     session.commit()
 
     previous_game = Game(
-        team_id=team["id"],
+        team_id=1,
         date=date(2026, 6, 1),
         mode="compete",
         game_type="season",
