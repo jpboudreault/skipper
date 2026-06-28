@@ -8,6 +8,7 @@ primary_region = "yyz" # yyz = Toronto (closest active region)
   dockerfile = "Dockerfile"
 
 [env]
+  SCORESHEET_PARSE_MODE = "rows"
   DATABASE_PATH = "/data/database.db"
   VITE_API_URL = "" # Ensures absolute relative path browser requests in production
   # Optional: SKIPPER_LOCALE = "en" or "fr" to lock UI and API errors to one language

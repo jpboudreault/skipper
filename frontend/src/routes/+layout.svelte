@@ -4,6 +4,7 @@
 	import { onMount } from 'svelte';
 	import { apiFetch } from '$lib/api';
 	import { initLocale, isMultilingual, setLocale, locale, t, translate, type Locale } from '$lib/i18n';
+	import { notifyTeamsReady } from '$lib/teamContext';
 	
 	let { data, children } = $props();
 	
@@ -38,15 +39,21 @@
 					
 					teamName = currentTeam.name;
 					sessionStorage.setItem('teamName', teamName);
+					notifyTeamsReady(activeTeamId);
 				} else {
 					teamName = translate('nav_no_team');
+					notifyTeamsReady(null);
 				}
 			} else if (res.status === 401) {
+				notifyTeamsReady(null);
 				window.location.href = '/login';
+			} else {
+				notifyTeamsReady(null);
 			}
 		} catch (e) {
 			console.error("Failed to fetch teams", e);
 			teamName = translate('nav_error_loading_team');
+			notifyTeamsReady(null);
 		}
 	});
 

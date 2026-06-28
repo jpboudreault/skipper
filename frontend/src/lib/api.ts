@@ -28,5 +28,15 @@ export async function apiFetch(path: string, options: RequestInit = {}) {
 	}
 
 	const url = apiPath.startsWith('http') ? apiPath : `${API_URL}${apiPath}`;
-	return fetch(url, { ...options, headers });
+	const res = await fetch(url, { ...options, headers });
+
+	if (
+		res.status === 401 &&
+		typeof window !== 'undefined' &&
+		!window.location.pathname.startsWith('/login')
+	) {
+		window.location.href = '/login';
+	}
+
+	return res;
 }

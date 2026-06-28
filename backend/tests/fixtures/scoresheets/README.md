@@ -96,4 +96,4 @@ Optional flags:
 - `--passes 2` run each scan N times and majority-vote each field (self-consistency)
 - `--dir <path>` use a different fixtures directory
 
-Set `SCORESHEET_PARSE_MODE=legacy` (default), `rows` (one image per batter row), or `transcribe` (experimental).
+Set `SCORESHEET_PARSE_MODE=rows` (default), `legacy` (single-pass tiled), or `transcribe` (experimental).

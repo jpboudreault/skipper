@@ -2,6 +2,7 @@
 	import { onMount } from 'svelte';
 	import { apiFetch } from '$lib/api';
 	import { t, translate, formatLocaleDate } from '$lib/i18n';
+	import { waitForActiveTeamId } from '$lib/teamContext';
 	import { formatOpponentMatchup, homeAwayBadgeClass } from '$lib/games';
 
 	let dashboardData: any = $state(null);
@@ -28,32 +29,30 @@
 	}
 
 	onMount(async () => {
-		setTimeout(async () => {
-			const teamId = sessionStorage.getItem('activeTeamId');
-			if (!teamId) {
-				loading = false;
-				return;
+		const teamId = await waitForActiveTeamId();
+		if (!teamId) {
+			loading = false;
+			return;
+		}
+
+		try {
+			if (shouldWarmup(teamId)) {
+				await apiFetch(`/teams/${teamId}/stats/dashboard/warmup`, { method: 'POST' });
+				markWarmedUp(teamId);
 			}
 
-			try {
-				if (shouldWarmup(teamId)) {
-					await apiFetch(`/teams/${teamId}/stats/dashboard/warmup`, { method: 'POST' });
-					markWarmedUp(teamId);
-				}
-
-				const res = await apiFetch(`/teams/${teamId}/stats/dashboard`);
-				if (res.ok) {
-					dashboardData = await res.json();
-				} else {
-					error = translate('dashboard_failed_load');
-				}
-			} catch (e) {
-				error = translate('dashboard_error_connecting');
-				console.error(e);
-			} finally {
-				loading = false;
+			const res = await apiFetch(`/teams/${teamId}/stats/dashboard`);
+			if (res.ok) {
+				dashboardData = await res.json();
+			} else {
+				error = translate('dashboard_failed_load');
 			}
-		}, 100);
+		} catch (e) {
+			error = translate('dashboard_error_connecting');
+			console.error(e);
+		} finally {
+			loading = false;
+		}
 	});
 </script>
 

@@ -2,6 +2,7 @@
 	import { onMount } from 'svelte';
 	import { apiFetch } from '$lib/api';
 	import { t } from '$lib/i18n';
+	import { waitForActiveTeamId } from '$lib/teamContext';
 
 	let battingStats: any[] = $state([]);
 	let pitchingStats: any[] = $state([]);
@@ -18,9 +19,8 @@
 
 	onMount(async () => {
 		try {
-			const activeId = sessionStorage.getItem('activeTeamId');
+			const activeId = await waitForActiveTeamId();
 			if (!activeId) {
-				console.warn('No active team ID found, waiting...');
 				loading = false;
 				return;
 			}

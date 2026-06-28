@@ -2,8 +2,8 @@
 vision.py — Anthropic Claude Sonnet vision API wrapper for parsing league scoresheets.
 
 Parse modes (SCORESHEET_PARSE_MODE):
-  legacy (default) — upscale + horizontal tiles, single-pass stat extraction
-  rows            — one crop per batter row (best for tight partial scans)
+  rows (default)  — one crop per batter row (best for tight partial scans)
+  legacy          — upscale + horizontal tiles, single-pass stat extraction
   transcribe      — tile + literal cell transcription, Python stat mapping
 """
 
@@ -33,7 +33,7 @@ async def parse_scoresheet(
     Send a scoresheet image to Claude Sonnet and return parsed batting stats
     matched to player IDs.
     """
-    mode = os.environ.get("SCORESHEET_PARSE_MODE", "legacy").lower()
+    mode = os.environ.get("SCORESHEET_PARSE_MODE", "rows").lower()
     if mode == "legacy":
         return await _parse_scoresheet_legacy(image_bytes, content_type, players, scoresheet_version)
     if mode == "transcribe":
