@@ -51,11 +51,7 @@ export function getAcceptLanguage(): string {
 	return get(locale);
 }
 
-function formatMessage(
-	loc: Locale,
-	key: string,
-	params?: Record<string, string | number>
-): string {
+function formatMessage(loc: Locale, key: string, params?: Record<string, string | number>): string {
 	let text = messages[loc][key] ?? messages.en[key] ?? key;
 	if (params) {
 		for (const [name, value] of Object.entries(params)) {
@@ -65,10 +61,7 @@ function formatMessage(
 	return text;
 }
 
-export function translate(
-	key: string,
-	params?: Record<string, string | number>
-): string {
+export function translate(key: string, params?: Record<string, string | number>): string {
 	return formatMessage(get(locale), key, params);
 }
 
@@ -82,10 +75,7 @@ export function statusLabel(status: string): string {
 	return translate(key) !== key ? translate(key) : status;
 }
 
-export function formatLocaleDate(
-	dateStr: string,
-	options?: Intl.DateTimeFormatOptions
-): string {
+export function formatLocaleDate(dateStr: string, options?: Intl.DateTimeFormatOptions): string {
 	if (!dateStr) return '';
 	const loc = get(locale) === 'fr' ? 'fr-CA' : 'en-CA';
 	// Calendar dates from the API (YYYY-MM-DD) are timezone-agnostic; parse as UTC

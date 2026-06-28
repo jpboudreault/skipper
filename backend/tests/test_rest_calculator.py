@@ -1,5 +1,4 @@
 """Tests for the innings-based rest calculator."""
-import pytest
 from datetime import date, timedelta
 from sqlmodel import Session
 from app.models import Team, Player, Game, PitchingAppearance

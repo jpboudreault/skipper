@@ -19,9 +19,6 @@
 		{ id: 9, name: 'RF' }
 	];
 
-	let { data } = $props();
-	const token = $derived(data.user?.token);
-
 	async function fetchData() {
 		try {
 			const [playersRes, scoresRes] = await Promise.all([
@@ -96,31 +93,31 @@
 </script>
 
 <div class="mx-auto max-w-[1400px] px-4 py-8 sm:px-6 lg:px-8">
-	<div class="sm:flex sm:items-center mb-6">
+	<div class="mb-6 sm:flex sm:items-center">
 		<div class="sm:flex-auto">
-			<h1 class="text-3xl font-bold text-base-content">{$t('matrix_title')}</h1>
-			<p class="mt-2 text-sm text-base-content/70">
+			<h1 class="text-base-content text-3xl font-bold">{$t('matrix_title')}</h1>
+			<p class="text-base-content/70 mt-2 text-sm">
 				{$t('matrix_description')}
 			</p>
 		</div>
 	</div>
 
-	<div class="card bg-base-100 shadow-xl border border-base-300 overflow-hidden">
+	<div class="card bg-base-100 border-base-300 overflow-hidden border shadow-xl">
 		{#if loading}
 			<div class="p-16 text-center">
 				<span class="loading loading-spinner loading-lg text-primary"></span>
-				<p class="mt-2 text-sm text-base-content/60">{$t('matrix_loading_matrix')}</p>
+				<p class="text-base-content/60 mt-2 text-sm">{$t('matrix_loading_matrix')}</p>
 			</div>
 		{:else}
 			<div class="overflow-x-auto">
-				<table class="table table-sm table-pin-rows table-pin-cols w-full">
+				<table class="table-sm table-pin-rows table-pin-cols table w-full">
 					<thead>
 						<tr>
-							<th class="bg-base-300 text-base-content font-bold w-48 sticky left-0 z-20">
+							<th class="bg-base-300 text-base-content sticky left-0 z-20 w-48 font-bold">
 								{$t('common_player')}
 							</th>
 							{#each POSITIONS as pos}
-								<th class="bg-base-200 text-base-content font-bold text-center w-24">
+								<th class="bg-base-200 text-base-content w-24 text-center font-bold">
 									{pos.name}
 								</th>
 							{/each}
@@ -129,14 +126,21 @@
 					<tbody>
 						{#each players as player}
 							<tr class="hover:bg-base-200/50 transition-colors">
-								<td class="bg-base-100 font-medium text-base-content border-r border-base-300 sticky left-0 z-10">
-									{player.first_name} {player.last_name}
+								<td
+									class="bg-base-100 text-base-content border-base-300 sticky left-0 z-10 border-r font-medium"
+								>
+									{player.first_name}
+									{player.last_name}
 									<span class="badge badge-sm badge-neutral ml-1">#{player.jersey}</span>
 								</td>
 
 								{#each POSITIONS as pos}
 									{@const currentScore = getScoreObj(player.id, pos.id)}
-									<td class="text-center border-r border-base-200 last:border-r-0 {currentScore.is_forbidden ? 'bg-error/10' : ''}">
+									<td
+										class="border-base-200 border-r text-center last:border-r-0 {currentScore.is_forbidden
+											? 'bg-error/10'
+											: ''}"
+									>
 										<div class="flex items-center justify-center space-x-1">
 											<input
 												type="number"
@@ -151,7 +155,7 @@
 														parseInt(e.currentTarget.value) || 0,
 														currentScore.is_forbidden
 													)}
-												class="input input-bordered input-xs text-center w-12"
+												class="input input-bordered input-xs w-12 text-center"
 											/>
 											<input
 												type="checkbox"

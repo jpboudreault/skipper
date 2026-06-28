@@ -4,14 +4,13 @@ Rest calculator for pitcher eligibility.
 Two modes based on game_type:
   - season/postseason: innings-based (rolling 7-day window)
   - tournament: pitch-count-based (bucket table + mandatory rest days, pitches summed across same-day games)
-
-Currently implements innings-based mode. Pitch-count mode is stubbed for later.
 """
 
+import json
 from datetime import date, timedelta
 from sqlmodel import Session, select
 from app.models import Game, PitchingAppearance, Team
-from typing import Optional
+from typing import Optional, List, Dict
 from dataclasses import dataclass
 
 
@@ -23,6 +22,10 @@ class PitcherEligibility:
     innings_last_7_days: int = 0
     remaining_today: int = 0
     remaining_7_days: int = 0
+    # Pitch-count (tournament) fields. Left at defaults in innings-based mode.
+    pitches_today: int = 0
+    remaining_pitches_today: Optional[int] = None
+    rest_until: Optional[str] = None  # ISO date the player is eligible again, if resting
 
 
 def get_pitcher_eligibility(
@@ -137,6 +140,30 @@ def _check_innings_based(
     )
 
 
+def _parse_pitch_count_rules(team: Team) -> dict:
+    try:
+        return json.loads(team.pitch_count_rules_json or "{}") or {}
+    except (json.JSONDecodeError, TypeError):
+        return {}
+
+
+def _required_rest_days(pitches: int, rest_requirements: List[Dict]) -> int:
+    """
+    Map a daily pitch total to the number of mandatory rest days using the
+    bucket table. Buckets are inclusive ranges (min_pitches..max_pitches).
+    If the total exceeds every defined bucket, the largest rest requirement applies.
+    """
+    if pitches <= 0 or not rest_requirements:
+        return 0
+    for bucket in rest_requirements:
+        lo = bucket.get("min_pitches", 0)
+        hi = bucket.get("max_pitches")
+        if pitches >= lo and (hi is None or pitches <= hi):
+            return bucket.get("days_rest", 0)
+    # Over the top of the table: apply the strictest rest requirement defined.
+    return max((b.get("days_rest", 0) for b in rest_requirements), default=0)
+
+
 def _check_pitch_count_based(
     player_id: int,
     game_date: date,
@@ -146,12 +173,88 @@ def _check_pitch_count_based(
 ) -> PitcherEligibility:
     """
     Pitch-count-based rest rules (tournament).
-    Pitches are summed across same-day games.
-    Uses the team's pitch_count_rules_json bucket table.
-    
-    TODO: Implement when tournament season starts. For now, returns eligible.
+
+    - Pitches are summed across all same-day games.
+    - A daily maximum (max_pitches_per_day) caps how much a pitcher can throw on game day.
+    - Each prior pitching day requires a number of rest days based on the bucket table;
+      the player cannot pitch again until those rest days have elapsed.
     """
+    rules = _parse_pitch_count_rules(team)
+    max_per_day = rules.get("max_pitches_per_day")
+    rest_requirements = rules.get("rest_requirements", []) or []
+
+    if max_per_day is None and not rest_requirements:
+        return PitcherEligibility(
+            eligible=True,
+            reason="No tournament pitch-count rules configured, assuming eligible",
+        )
+
+    max_rest = max((b.get("days_rest", 0) for b in rest_requirements), default=0)
+    window_start = game_date - timedelta(days=max_rest + 1)
+
+    games_in_window = session.exec(
+        select(Game).where(
+            Game.team_id == team.id,
+            Game.game_type == "tournament",
+            Game.date >= window_start,
+            Game.date <= game_date,
+        )
+    ).all()
+
+    pitches_by_date: Dict[date, int] = {}
+    for game in games_in_window:
+        if exclude_game_id and game.id == exclude_game_id:
+            continue
+        appearances = session.exec(
+            select(PitchingAppearance).where(
+                PitchingAppearance.game_id == game.id,
+                PitchingAppearance.player_id == player_id,
+            )
+        ).all()
+        thrown = sum((app.pitch_count or 0) for app in appearances)
+        if thrown:
+            pitches_by_date[game.date] = pitches_by_date.get(game.date, 0) + thrown
+
+    pitches_today = pitches_by_date.get(game_date, 0)
+    remaining_pitches_today = (
+        max(0, max_per_day - pitches_today) if max_per_day is not None else None
+    )
+
+    # Daily cap: already maxed out for today.
+    if max_per_day is not None and pitches_today >= max_per_day:
+        return PitcherEligibility(
+            eligible=False,
+            reason=f"Already threw {pitches_today} pitches today (max {max_per_day}/day)",
+            pitches_today=pitches_today,
+            remaining_pitches_today=0,
+        )
+
+    # Rest requirement from prior pitching days.
+    latest_rest_until: Optional[date] = None
+    for day, pitches in pitches_by_date.items():
+        if day == game_date:
+            continue
+        days_rest = _required_rest_days(pitches, rest_requirements)
+        eligible_again = day + timedelta(days=days_rest + 1)
+        if game_date < eligible_again:
+            if latest_rest_until is None or eligible_again > latest_rest_until:
+                latest_rest_until = eligible_again
+
+    if latest_rest_until is not None:
+        return PitcherEligibility(
+            eligible=False,
+            reason=f"Resting until {latest_rest_until.isoformat()} (pitch-count rest requirement)",
+            pitches_today=pitches_today,
+            remaining_pitches_today=remaining_pitches_today,
+            rest_until=latest_rest_until.isoformat(),
+        )
+
+    reason = "Eligible (tournament pitch-count rules)"
+    if remaining_pitches_today is not None:
+        reason = f"{remaining_pitches_today} pitches left today"
     return PitcherEligibility(
         eligible=True,
-        reason="Pitch-count rules not yet implemented (tournament mode)",
+        reason=reason,
+        pitches_today=pitches_today,
+        remaining_pitches_today=remaining_pitches_today,
     )

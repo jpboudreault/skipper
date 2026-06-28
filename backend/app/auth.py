@@ -1,10 +1,11 @@
 import os
 import re
+import logging
 from datetime import datetime, timedelta
 import jwt
 from jwt import PyJWKClient
 from dotenv import load_dotenv
-from fastapi import Depends, HTTPException, status, Header
+from fastapi import Depends, Header
 from fastapi.security import HTTPBearer, HTTPAuthorizationCredentials
 from sqlmodel import Session, select
 from app.db import get_session
@@ -15,6 +16,8 @@ from google.auth.transport import requests
 from app.i18n.errors import raise_api_error
 
 load_dotenv()
+
+logger = logging.getLogger("skipper.auth")
 
 JWT_SECRET = os.environ.get("JWT_SECRET", "super-secret-default-key")
 ALGORITHM = "HS256"
@@ -84,11 +87,12 @@ def verify_microsoft_token(token: str) -> dict:
 def login_user_by_email(email: str, provider: str, session: Session) -> dict:
     email_lower = email.strip().lower()
     user = session.exec(select(User).where(User.email == email_lower)).first()
-    is_dev = os.environ.get("DEV_MODE", "true").lower() == "true"
+    # Default to production-safe behavior (fail closed); local dev opts in via DEV_MODE=true.
+    is_dev = os.environ.get("DEV_MODE", "false").lower() == "true"
 
     if not user:
         if is_dev:
-            print(f"DEV MODE: Automatically creating user for '{email_lower}' via {provider}")
+            logger.info("DEV MODE: auto-creating user for '%s' via %s", email_lower, provider)
             user = User(email=email_lower, is_active=True)
             session.add(user)
             session.commit()
@@ -102,7 +106,7 @@ def login_user_by_email(email: str, provider: str, session: Session) -> dict:
             session.commit()
             session.refresh(user)
         else:
-            print(f"DEBUG LOGIN: {provider} email '{email_lower}' not found in database.")
+            logger.warning("%s login rejected: email '%s' not authorized", provider, email_lower)
             raise_api_error(401, "email_not_authorized")
 
     access_token = create_access_token(data={"sub": user.email, "user_id": user.id})
@@ -159,4 +163,21 @@ def get_active_team(
     if not team or current_user not in team.admins:
         raise_api_error(403, "not_authorized_for_team")
         
+    return team
+
+def get_team_membership(
+    team_id: int,
+    current_user: User = Depends(get_current_user),
+    session: Session = Depends(get_session),
+) -> Team:
+    """Validate that the current user belongs to the team in the path, returning it.
+
+    Use on routes that take a {team_id} path parameter (e.g. stats endpoints).
+    """
+    current_user = session.get(User, current_user.id)
+    if not current_user or team_id not in {t.id for t in current_user.teams}:
+        raise_api_error(403, "not_authorized_for_team")
+    team = session.get(Team, team_id)
+    if not team:
+        raise_api_error(404, "team_not_found")
     return team

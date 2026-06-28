@@ -1,7 +1,6 @@
 """
 Tests for the lineup optimizer (CP-SAT solver).
 """
-import pytest
 from app.optimizer import solve_lineup, PlayerInfo, OptimizerConfig, LockedCell
 
 

@@ -37,8 +37,16 @@ export default defineConfig(
 		}
 	},
 	{
-		// Override or add rule settings here, such as:
-		// 'svelte/button-has-type': 'error'
-		rules: {}
+		// These rules flag pre-existing technical debt across the app (heavy `any`
+		// usage, keyless {#each}, etc.). They are downgraded to warnings so CI can
+		// enforce lint without a large one-shot rewrite; tighten them incrementally.
+		rules: {
+			'@typescript-eslint/no-explicit-any': 'warn',
+			'@typescript-eslint/no-unused-vars': 'warn',
+			'@typescript-eslint/ban-ts-comment': 'warn',
+			'svelte/require-each-key': 'warn',
+			'svelte/no-navigation-without-resolve': 'warn',
+			'svelte/prefer-svelte-reactivity': 'warn'
+		}
 	}
 );

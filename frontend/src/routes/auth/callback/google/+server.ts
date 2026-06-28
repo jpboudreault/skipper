@@ -3,7 +3,7 @@ import { json, type RequestHandler } from '@sveltejs/kit';
 export const POST: RequestHandler = async ({ request, cookies }) => {
 	try {
 		const { credential } = await request.json();
-		
+
 		if (!credential) {
 			return json({ detail: 'No credential provided' }, { status: 400 });
 		}
@@ -23,7 +23,7 @@ export const POST: RequestHandler = async ({ request, cookies }) => {
 		}
 
 		const data = await res.json();
-		
+
 		// Set the session cookie
 		cookies.set('session', data.access_token, {
 			path: '/',
@@ -35,7 +35,7 @@ export const POST: RequestHandler = async ({ request, cookies }) => {
 
 		return json({ ok: true });
 	} catch (e: any) {
-		console.error("Google Auth server callback error:", e);
+		console.error('Google Auth server callback error:', e);
 		return json({ detail: e.message || 'Internal Server Error' }, { status: 500 });
 	}
 };

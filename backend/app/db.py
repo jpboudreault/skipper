@@ -6,7 +6,9 @@ sqlite_file_name = os.getenv("DATABASE_PATH", "database.db")
 sqlite_url = f"sqlite:///{sqlite_file_name}"
 
 connect_args = {"check_same_thread": False}
-engine = create_engine(sqlite_url, echo=True, connect_args=connect_args)
+# SQL statement logging is noisy in production; enable it explicitly with SQL_ECHO=true.
+sql_echo = os.getenv("SQL_ECHO", "false").lower() == "true"
+engine = create_engine(sqlite_url, echo=sql_echo, connect_args=connect_args)
 
 def create_db_and_tables():
     SQLModel.metadata.create_all(engine)

@@ -26,19 +26,31 @@
 	];
 </script>
 
-<div class="mx-auto max-w-7xl px-4 py-8 sm:px-6 lg:px-8 print:p-0 print:max-w-none print:m-0">
+<div class="mx-auto max-w-7xl px-4 py-8 sm:px-6 lg:px-8 print:m-0 print:max-w-none print:p-0">
 	<div class="mb-6 print:hidden">
-		<a href="/games" class="btn btn-ghost btn-xs text-base-content/60 mb-2">{$t('game_tabs_back_to_games')}</a>
+		<a href="/games" class="btn btn-ghost btn-xs text-base-content/60 mb-2"
+			>{$t('game_tabs_back_to_games')}</a
+		>
 		{#if game}
-			<h1 class="text-xl sm:text-3xl font-extrabold text-base-content flex flex-wrap items-center gap-x-2 gap-y-1">
+			<h1
+				class="text-base-content flex flex-wrap items-center gap-x-2 gap-y-1 text-xl font-extrabold sm:text-3xl"
+			>
 				{#if game.game_number}
-					<span class="text-primary whitespace-nowrap">{$t('game_tabs_game_number', { number: game.game_number })}</span>
+					<span class="text-primary whitespace-nowrap"
+						>{$t('game_tabs_game_number', { number: game.game_number })}</span
+					>
 					<span class="text-base-content/30 hidden sm:inline">|</span>
 				{/if}
 				<span class="whitespace-nowrap">{game.date}</span>
-				<span class="text-base-content/50 text-base sm:text-xl font-normal whitespace-nowrap">{game.home_away === 'A' ? $t('game_tabs_at') : $t('dashboard_vs')}</span>
+				<span class="text-base-content/50 text-base font-normal whitespace-nowrap sm:text-xl"
+					>{game.home_away === 'A' ? $t('game_tabs_at') : $t('dashboard_vs')}</span
+				>
 				<span class="text-base-content">{game.opponent || $t('dashboard_tbd')}</span>
-				<span class="badge badge-sm sm:badge-md {game.result_runs_for != null ? 'badge-success' : 'badge-ghost'}">
+				<span
+					class="badge badge-sm sm:badge-md {game.result_runs_for != null
+						? 'badge-success'
+						: 'badge-ghost'}"
+				>
 					{game.result_runs_for != null ? $t('common_complete') : $t('common_scheduled')}
 				</span>
 			</h1>
@@ -52,7 +64,9 @@
 			{@const isActive = $page.url.pathname === href}
 			<a
 				{href}
-				class="tab tab-bordered {isActive ? 'tab-active font-bold text-primary' : 'text-base-content/60'}"
+				class="tab tab-bordered {isActive
+					? 'tab-active text-primary font-bold'
+					: 'text-base-content/60'}"
 			>
 				{$t(tab.key)}
 			</a>

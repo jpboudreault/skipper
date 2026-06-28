@@ -4,7 +4,16 @@
 	let { game, team, players, battingOrder, lineup, availability = [], numInnings } = $props();
 
 	const POSITIONS: Record<number, string> = {
-		0: 'X', 1: '1', 2: '2', 3: '3', 4: '4', 5: '5', 6: '6', 7: '7', 8: '8', 9: '9'
+		0: 'X',
+		1: '1',
+		2: '2',
+		3: '3',
+		4: '4',
+		5: '5',
+		6: '6',
+		7: '7',
+		8: '8',
+		9: '9'
 	};
 
 	let dateStr = $derived(
@@ -38,22 +47,33 @@
 	}
 </script>
 
-<div class="font-sans text-black bg-white p-2">
-	<h1 class="text-center font-bold text-lg mb-2 uppercase tracking-wide">{$t('lineup_defense_title')}</h1>
+<div class="bg-white p-2 font-sans text-black">
+	<h1 class="mb-2 text-center text-lg font-bold tracking-wide uppercase">
+		{$t('lineup_defense_title')}
+	</h1>
 
-	<div class="text-xs mb-2 grid grid-cols-2 gap-x-4 gap-y-0.5">
+	<div class="mb-2 grid grid-cols-2 gap-x-4 gap-y-0.5 text-xs">
 		<div><span class="font-semibold">{$t('lineup_defense_team')}:</span> {team?.name || ''}</div>
-		<div><span class="font-semibold">{$t('lineup_defense_opponent')}:</span> {game?.opponent || ''}</div>
+		<div>
+			<span class="font-semibold">{$t('lineup_defense_opponent')}:</span>
+			{game?.opponent || ''}
+		</div>
 		<div><span class="font-semibold">{$t('lineup_defense_date')}:</span> {dateStr}</div>
-		<div><span class="font-semibold">{$t('lineup_defense_game_number')}:</span> {game?.game_number || ''}</div>
+		<div>
+			<span class="font-semibold">{$t('lineup_defense_game_number')}:</span>
+			{game?.game_number || ''}
+		</div>
 	</div>
 
 	<table class="w-full border-collapse border border-black text-xs">
 		<thead>
 			<tr class="bg-gray-100">
-				<th class="border border-black p-1 text-left font-bold w-48">{$t('lineup_order_player')}</th>
+				<th class="w-48 border border-black p-1 text-left font-bold">{$t('lineup_order_player')}</th
+				>
 				{#each Array(numInnings) as _, inn}
-					<th class="border border-black p-1 text-center font-bold w-10">{$t('lineup_inning', { number: inn + 1 })}</th>
+					<th class="w-10 border border-black p-1 text-center font-bold"
+						>{$t('lineup_inning', { number: inn + 1 })}</th
+					>
 				{/each}
 			</tr>
 		</thead>
@@ -63,15 +83,20 @@
 				{#if player}
 					<tr>
 						<td class="border border-black p-1 font-medium">
-							<span class="text-gray-600 mr-1">#{player.jersey}</span>
-							{player.first_name} {player.last_name}
+							<span class="mr-1 text-gray-600">#{player.jersey}</span>
+							{player.first_name}
+							{player.last_name}
 							{#if player.is_substitute}
-								<span class="text-[9px] uppercase ml-1">({$t('lineup_sub')})</span>
+								<span class="ml-1 text-[9px] uppercase">({$t('lineup_sub')})</span>
 							{/if}
 						</td>
 						{#each Array(numInnings) as _, inn}
 							{@const pos = getCellPosition(player.id, inn + 1)}
-							<td class="border border-black p-1 text-center font-bold {isInjured(player.id, inn + 1) ? 'text-red-700' : ''}">
+							<td
+								class="border border-black p-1 text-center font-bold {isInjured(player.id, inn + 1)
+									? 'text-red-700'
+									: ''}"
+							>
 								{isInjured(player.id, inn + 1) ? '🏥' : formatPosition(pos)}
 							</td>
 						{/each}

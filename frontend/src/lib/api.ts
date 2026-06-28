@@ -2,9 +2,12 @@ import { page } from '$app/stores';
 import { get } from 'svelte/store';
 import { getAcceptLanguage } from '$lib/i18n';
 
-const API_URL = typeof window !== 'undefined' && window.location.hostname !== 'localhost' && window.location.hostname !== '127.0.0.1'
-	? ''
-	: 'http://localhost:8000';
+export const API_URL =
+	typeof window !== 'undefined' &&
+	window.location.hostname !== 'localhost' &&
+	window.location.hostname !== '127.0.0.1'
+		? ''
+		: 'http://localhost:8000';
 
 export async function apiFetch(path: string, options: RequestInit = {}) {
 	const pageData = get(page).data;
@@ -12,7 +15,7 @@ export async function apiFetch(path: string, options: RequestInit = {}) {
 
 	const headers = new Headers(options.headers || {});
 	headers.set('Accept-Language', getAcceptLanguage());
-	
+
 	if (token && !headers.has('Authorization')) {
 		headers.set('Authorization', `Bearer ${token}`);
 	}

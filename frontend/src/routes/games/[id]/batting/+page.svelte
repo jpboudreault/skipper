@@ -9,7 +9,7 @@
 	let battingData: Record<number, any> = $state({});
 	let loading = $state(true);
 	let saving = $state(false);
-let isDirty = $state(false);
+	let isDirty = $state(false);
 	let photoIngestionEnabled = $state(false);
 
 	// Photo ingestion state
@@ -115,11 +115,11 @@ let isDirty = $state(false);
 
 	onMount(fetchData);
 
-beforeNavigate((event) => {
-    if (isDirty && !confirm(translate('batting_unsaved_confirm'))) {
-        event.cancel();
-    }
-});
+	beforeNavigate((event) => {
+		if (isDirty && !confirm(translate('batting_unsaved_confirm'))) {
+			event.cancel();
+		}
+	});
 
 	function getVal(playerId: number, key: string): number {
 		return battingData[playerId]?.[key] ?? 0;
@@ -133,7 +133,7 @@ beforeNavigate((event) => {
 			}
 		}
 		battingData[playerId][key] = value;
-    isDirty = true;
+		isDirty = true;
 	}
 
 	async function saveAll() {
@@ -150,7 +150,10 @@ beforeNavigate((event) => {
 			});
 			if (res.ok) {
 				// Brief success flash
-				setTimeout(() => { saving = false; isDirty = false; }, 500);
+				setTimeout(() => {
+					saving = false;
+					isDirty = false;
+				}, 500);
 			} else {
 				saving = false;
 				alert(translate('batting_failed_save'));
@@ -261,107 +264,107 @@ beforeNavigate((event) => {
 	{#if photoIngestionEnabled}
 		<!-- Photo Upload Zone -->
 		<div class="border-base-200 bg-base-100 border-b px-6 py-4">
-		{#if ingesting}
-			<!-- Ingesting state -->
-			<div
-				class="from-primary/5 to-secondary/5 border-primary/20 flex items-center justify-center gap-3 rounded-xl border-2 bg-gradient-to-r py-6"
-			>
-				<span class="loading loading-spinner loading-md text-primary"></span>
-				<div>
-					<p class="text-base-content font-semibold">{$t('batting_parsing_ai')}</p>
-					<p class="text-base-content/60 text-sm">{$t('batting_parsing_wait')}</p>
+			{#if ingesting}
+				<!-- Ingesting state -->
+				<div
+					class="from-primary/5 to-secondary/5 border-primary/20 flex items-center justify-center gap-3 rounded-xl border-2 bg-gradient-to-r py-6"
+				>
+					<span class="loading loading-spinner loading-md text-primary"></span>
+					<div>
+						<p class="text-base-content font-semibold">{$t('batting_parsing_ai')}</p>
+						<p class="text-base-content/60 text-sm">{$t('batting_parsing_wait')}</p>
+					</div>
 				</div>
-			</div>
-		{:else}
-			<!-- Dropzone -->
-			<div
-				role="button"
-				tabindex="0"
-				class="relative flex cursor-pointer flex-col items-center justify-center rounded-xl border-2 border-dashed py-6 transition-all
+			{:else}
+				<!-- Dropzone -->
+				<div
+					role="button"
+					tabindex="0"
+					class="relative flex cursor-pointer flex-col items-center justify-center rounded-xl border-2 border-dashed py-6 transition-all
 					{dragOver
-					? 'border-primary bg-primary/10 scale-[1.01]'
-					: 'border-base-300 hover:border-primary/50 hover:bg-base-200/30'}"
-				ondrop={handleDrop}
-				ondragover={handleDragOver}
-				ondragleave={handleDragLeave}
-				onclick={() => document.getElementById('scoresheet-upload')?.click()}
-				onkeydown={(e) => {
-					if (e.key === 'Enter' || e.key === ' ')
-						document.getElementById('scoresheet-upload')?.click();
-				}}
-			>
-				<input
-					id="scoresheet-upload"
-					type="file"
-					accept="image/*,.heic,.heif"
-					class="hidden"
-					onchange={handleFileSelect}
-				/>
-				<svg
-					class="text-primary/60 mb-2 h-10 w-10"
-					fill="none"
-					stroke="currentColor"
-					viewBox="0 0 24 24"
+						? 'border-primary bg-primary/10 scale-[1.01]'
+						: 'border-base-300 hover:border-primary/50 hover:bg-base-200/30'}"
+					ondrop={handleDrop}
+					ondragover={handleDragOver}
+					ondragleave={handleDragLeave}
+					onclick={() => document.getElementById('scoresheet-upload')?.click()}
+					onkeydown={(e) => {
+						if (e.key === 'Enter' || e.key === ' ')
+							document.getElementById('scoresheet-upload')?.click();
+					}}
 				>
-					<path
-						stroke-linecap="round"
-						stroke-linejoin="round"
-						stroke-width="1.5"
-						d="M3 9a2 2 0 012-2h.93a2 2 0 001.664-.89l.812-1.22A2 2 0 0110.07 4h3.86a2 2 0 011.664.89l.812 1.22A2 2 0 0018.07 7H19a2 2 0 012 2v9a2 2 0 01-2 2H5a2 2 0 01-2-2V9z"
-					></path>
-					<path
-						stroke-linecap="round"
-						stroke-linejoin="round"
-						stroke-width="1.5"
-						d="M15 13a3 3 0 11-6 0 3 3 0 016 0z"
-					></path>
-				</svg>
-				<p class="text-base-content font-semibold">{$t('batting_upload_photo')}</p>
-				<p class="text-base-content/50 mt-1 text-xs">
-					{$t('batting_upload_hint')}
-				</p>
-			</div>
-		{/if}
+					<input
+						id="scoresheet-upload"
+						type="file"
+						accept="image/*,.heic,.heif"
+						class="hidden"
+						onchange={handleFileSelect}
+					/>
+					<svg
+						class="text-primary/60 mb-2 h-10 w-10"
+						fill="none"
+						stroke="currentColor"
+						viewBox="0 0 24 24"
+					>
+						<path
+							stroke-linecap="round"
+							stroke-linejoin="round"
+							stroke-width="1.5"
+							d="M3 9a2 2 0 012-2h.93a2 2 0 001.664-.89l.812-1.22A2 2 0 0110.07 4h3.86a2 2 0 011.664.89l.812 1.22A2 2 0 0018.07 7H19a2 2 0 012 2v9a2 2 0 01-2 2H5a2 2 0 01-2-2V9z"
+						></path>
+						<path
+							stroke-linecap="round"
+							stroke-linejoin="round"
+							stroke-width="1.5"
+							d="M15 13a3 3 0 11-6 0 3 3 0 016 0z"
+						></path>
+					</svg>
+					<p class="text-base-content font-semibold">{$t('batting_upload_photo')}</p>
+					<p class="text-base-content/50 mt-1 text-xs">
+						{$t('batting_upload_hint')}
+					</p>
+				</div>
+			{/if}
 
-		<!-- Success alert -->
-		{#if ingestSuccess}
-			<div class="alert alert-success mt-3 shadow-sm">
-				<svg
-					xmlns="http://www.w3.org/2000/svg"
-					class="h-5 w-5 shrink-0 stroke-current"
-					fill="none"
-					viewBox="0 0 24 24"
-					><path
-						stroke-linecap="round"
-						stroke-linejoin="round"
-						stroke-width="2"
-						d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"
-					/></svg
-				>
-				<span>{$t('batting_parsed_success')}</span>
-			</div>
-		{/if}
+			<!-- Success alert -->
+			{#if ingestSuccess}
+				<div class="alert alert-success mt-3 shadow-sm">
+					<svg
+						xmlns="http://www.w3.org/2000/svg"
+						class="h-5 w-5 shrink-0 stroke-current"
+						fill="none"
+						viewBox="0 0 24 24"
+						><path
+							stroke-linecap="round"
+							stroke-linejoin="round"
+							stroke-width="2"
+							d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"
+						/></svg
+					>
+					<span>{$t('batting_parsed_success')}</span>
+				</div>
+			{/if}
 
-		<!-- Error alert -->
-		{#if ingestError}
-			<div class="alert alert-error mt-3 shadow-sm">
-				<svg
-					xmlns="http://www.w3.org/2000/svg"
-					class="h-5 w-5 shrink-0 stroke-current"
-					fill="none"
-					viewBox="0 0 24 24"
-					><path
-						stroke-linecap="round"
-						stroke-linejoin="round"
-						stroke-width="2"
-						d="M10 14l2-2m0 0l2-2m-2 2l-2-2m2 2l2 2m7-2a9 9 0 11-18 0 9 9 0 0118 0z"
-					/></svg
-				>
-				<span>{ingestError}</span>
-				<button class="btn btn-ghost btn-xs" onclick={() => (ingestError = '')}>✕</button>
-			</div>
-		{/if}
-	</div>
+			<!-- Error alert -->
+			{#if ingestError}
+				<div class="alert alert-error mt-3 shadow-sm">
+					<svg
+						xmlns="http://www.w3.org/2000/svg"
+						class="h-5 w-5 shrink-0 stroke-current"
+						fill="none"
+						viewBox="0 0 24 24"
+						><path
+							stroke-linecap="round"
+							stroke-linejoin="round"
+							stroke-width="2"
+							d="M10 14l2-2m0 0l2-2m-2 2l-2-2m2 2l2 2m7-2a9 9 0 11-18 0 9 9 0 0118 0z"
+						/></svg
+					>
+					<span>{ingestError}</span>
+					<button class="btn btn-ghost btn-xs" onclick={() => (ingestError = '')}>✕</button>
+				</div>
+			{/if}
+		</div>
 	{/if}
 
 	{#if loading}
@@ -386,7 +389,7 @@ beforeNavigate((event) => {
 							>{$t('batting_player_col')}</th
 						>
 						{#each statColumns as col}
-							<th class="bg-base-200 text-base-content px-0.5 text-center font-bold leading-none"
+							<th class="bg-base-200 text-base-content px-0.5 text-center leading-none font-bold"
 								>{col.label}</th
 							>
 						{/each}

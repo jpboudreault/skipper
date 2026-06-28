@@ -1,5 +1,5 @@
 import pytest
-from app.models import Player, Team
+from app.models import Player
 
 @pytest.mark.asyncio
 async def test_read_root(client):

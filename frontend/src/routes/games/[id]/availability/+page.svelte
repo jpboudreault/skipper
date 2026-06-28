@@ -32,7 +32,7 @@
 	onMount(fetchData);
 
 	function getStatus(playerId: number): string {
-		const a = availability.find(a => a.player_id === playerId);
+		const a = availability.find((a) => a.player_id === playerId);
 		return (a?.status || 'available').toLowerCase();
 	}
 
@@ -40,18 +40,22 @@
 		console.log('[availability] sending status:', newStatus);
 
 		// Optimistic update
-		const existing = availability.find(a => a.player_id === playerId);
+		const existing = availability.find((a) => a.player_id === playerId);
 		if (existing) {
 			existing.status = newStatus;
 		} else {
-			availability.push({ game_id: parseInt($page.params.id ?? ''), player_id: playerId, status: newStatus });
+			availability.push({
+				game_id: parseInt($page.params.id ?? ''),
+				player_id: playerId,
+				status: newStatus
+			});
 		}
 		availability = [...availability];
 
 		try {
 			const res = await apiFetch(`/games/${$page.params.id}/availability`, {
 				method: 'PUT',
-				headers: { 
+				headers: {
 					'Content-Type': 'application/json'
 				},
 				body: JSON.stringify([{ player_id: playerId, status: newStatus }])
@@ -111,8 +115,8 @@
 		ghost.style.width = target.offsetWidth + 'px';
 		ghost.style.transform = 'scale(1.05) rotate(2deg)';
 		ghost.style.boxShadow = '0 8px 32px rgba(0,0,0,0.18)';
-		ghost.style.left = (touch.clientX - target.offsetWidth / 2) + 'px';
-		ghost.style.top = (touch.clientY - 30) + 'px';
+		ghost.style.left = touch.clientX - target.offsetWidth / 2 + 'px';
+		ghost.style.top = touch.clientY - 30 + 'px';
 		document.body.appendChild(ghost);
 		touchGhost = ghost;
 
@@ -126,8 +130,8 @@
 
 		if (touchGhost) {
 			const target = e.currentTarget as HTMLElement;
-			touchGhost.style.left = (touch.clientX - target.offsetWidth / 2) + 'px';
-			touchGhost.style.top = (touch.clientY - 30) + 'px';
+			touchGhost.style.left = touch.clientX - target.offsetWidth / 2 + 'px';
+			touchGhost.style.top = touch.clientY - 30 + 'px';
 		}
 
 		// Find which drop zone we're over
@@ -137,7 +141,7 @@
 			touchCurrentStatus = dropZone?.dataset.dropStatus || null;
 
 			// Highlight active zone
-			document.querySelectorAll('[data-drop-status]').forEach(zone => {
+			document.querySelectorAll('[data-drop-status]').forEach((zone) => {
 				(zone as HTMLElement).classList.remove('ring-2', 'ring-primary', 'ring-offset-2');
 			});
 			if (dropZone) {
@@ -158,7 +162,7 @@
 		target.style.opacity = '1';
 
 		// Remove highlights
-		document.querySelectorAll('[data-drop-status]').forEach(zone => {
+		document.querySelectorAll('[data-drop-status]').forEach((zone) => {
 			(zone as HTMLElement).classList.remove('ring-2', 'ring-primary', 'ring-offset-2');
 		});
 
@@ -191,37 +195,44 @@
 {#if loading}
 	<div class="p-16 text-center">
 		<span class="loading loading-spinner loading-lg text-primary"></span>
-		<p class="mt-2 text-sm text-base-content/60">{$t('availability_loading')}</p>
+		<p class="text-base-content/60 mt-2 text-sm">{$t('availability_loading')}</p>
 	</div>
 {:else}
 	{#snippet availabilitySection(title: string, description: string, isCoach: boolean)}
 		<div class="mb-6 {isCoach ? 'mt-12' : ''}">
-			<h2 class="text-xl font-bold text-base-content">{title}</h2>
-			<p class="text-sm text-base-content/60">{description}</p>
+			<h2 class="text-base-content text-xl font-bold">{title}</h2>
+			<p class="text-base-content/60 text-sm">{description}</p>
 		</div>
-		<div class="flex flex-col md:flex-row gap-6 items-stretch">
+		<div class="flex flex-col items-stretch gap-6 md:flex-row">
 			{#each columns as status}
-				<div 
-					class="card bg-base-100 border border-base-300 shadow-md min-h-[250px] flex-1 flex flex-col transition-all duration-150"
+				<div
+					class="card bg-base-100 border-base-300 flex min-h-[250px] flex-1 flex-col border shadow-md transition-all duration-150"
 					role="application"
 					data-drop-status={status}
 					ondragover={handleDragOver}
 					ondrop={(e) => handleDrop(e, status)}
 				>
-					<div class="p-4 border-b border-base-200 flex justify-between items-center bg-base-200/40 rounded-t-xl">
-						<h3 class="font-bold uppercase tracking-wider text-sm
+					<div
+						class="border-base-200 bg-base-200/40 flex items-center justify-between rounded-t-xl border-b p-4"
+					>
+						<h3
+							class="text-sm font-bold tracking-wider uppercase
 							{status === 'available' ? 'text-success' : ''}
 							{status === 'absent' ? 'text-error' : ''}
 							{status === 'late' ? 'text-warning' : ''}
-						">
+						"
+						>
 							{statusLabel(status)}
 						</h3>
-						<span class="badge badge-neutral">{players.filter(p => !!p.is_coach === isCoach && getStatus(p.id) === status).length}</span>
+						<span class="badge badge-neutral"
+							>{players.filter((p) => !!p.is_coach === isCoach && getStatus(p.id) === status)
+								.length}</span
+						>
 					</div>
-					<div class="p-4 flex flex-col gap-2 flex-grow">
-						{#each players.filter(p => !!p.is_coach === isCoach && getStatus(p.id) === status) as player}
-							<div 
-								class="card bg-base-200/40 border border-base-300 hover:bg-base-200/90 transition-colors p-3 flex flex-row items-center gap-2 cursor-grab touch-none"
+					<div class="flex flex-grow flex-col gap-2 p-4">
+						{#each players.filter((p) => !!p.is_coach === isCoach && getStatus(p.id) === status) as player}
+							<div
+								class="card bg-base-200/40 border-base-300 hover:bg-base-200/90 flex cursor-grab touch-none flex-row items-center gap-2 border p-3 transition-colors"
 								role="button"
 								tabindex="0"
 								draggable="true"
@@ -231,16 +242,25 @@
 								ontouchend={(e) => handleTouchEnd(e)}
 							>
 								<span class="badge badge-neutral badge-sm">#{player.jersey}</span>
-								<span class="font-medium text-base-content text-sm">{player.first_name} {player.last_name}</span>
+								<span class="text-base-content text-sm font-medium"
+									>{player.first_name} {player.last_name}</span
+								>
 								{#if player.is_coach}
-									<span class="badge badge-xs badge-info text-[9px] uppercase ml-auto">{player.coach_type === 'head' ? 'HC' : 'AC'}</span>
+									<span class="badge badge-xs badge-info ml-auto text-[9px] uppercase"
+										>{player.coach_type === 'head' ? 'HC' : 'AC'}</span
+									>
 								{:else if player.is_substitute}
-									<span class="badge badge-xs badge-neutral text-[9px] uppercase ml-auto">{$t('lineup_sub')}</span>
+									<span class="badge badge-xs badge-neutral ml-auto text-[9px] uppercase"
+										>{$t('lineup_sub')}</span
+									>
 								{/if}
 								<!-- Mobile tap button: cycle through statuses -->
 								<button
 									class="btn btn-ghost btn-xs ml-auto md:hidden"
-									onclick={(e) => { e.stopPropagation(); cycleStatus(player.id); }}
+									onclick={(e) => {
+										e.stopPropagation();
+										cycleStatus(player.id);
+									}}
 									title={$t('availability_tap_change_status')}
 								>
 									{#if status === 'available'}
@@ -259,6 +279,14 @@
 		</div>
 	{/snippet}
 
-	{@render availabilitySection($t('availability_player_availability'), $t('availability_player_availability_desc'), false)}
-	{@render availabilitySection($t('availability_coach_availability'), $t('availability_coach_availability_desc'), true)}
+	{@render availabilitySection(
+		$t('availability_player_availability'),
+		$t('availability_player_availability_desc'),
+		false
+	)}
+	{@render availabilitySection(
+		$t('availability_coach_availability'),
+		$t('availability_coach_availability_desc'),
+		true
+	)}
 {/if}

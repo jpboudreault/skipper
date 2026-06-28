@@ -38,13 +38,15 @@
 	});
 </script>
 
-<div class="min-h-screen flex items-center justify-center bg-base-200 py-12 px-4">
-	<div class="card w-full max-w-md bg-base-100 shadow-xl border border-base-300 p-8 space-y-6 text-center">
+<div class="bg-base-200 flex min-h-screen items-center justify-center px-4 py-12">
+	<div
+		class="card bg-base-100 border-base-300 w-full max-w-md space-y-6 border p-8 text-center shadow-xl"
+	>
 		{#if status === 'loading'}
 			<span class="loading loading-spinner loading-lg text-primary mx-auto"></span>
-			<p class="text-sm font-medium text-base-content/70">{$t('login_verifying')}</p>
+			<p class="text-base-content/70 text-sm font-medium">{$t('login_verifying')}</p>
 		{:else}
-			<div class="alert alert-error text-sm py-3 shadow-sm rounded-lg">
+			<div class="alert alert-error rounded-lg py-3 text-sm shadow-sm">
 				<span>{errorMessage}</span>
 			</div>
 			<a href="/login" class="btn btn-primary">{$t('login_authentication')}</a>

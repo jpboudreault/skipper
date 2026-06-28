@@ -4,7 +4,6 @@ from sqlmodel import Session
 from app.models import Team, Player, Game, BattingLine, PitchingAppearance, Lineup
 from datetime import date
 
-import pytest
 
 @pytest.mark.asyncio
 async def test_season_batting(client: TestClient, session: Session):

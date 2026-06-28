@@ -7,7 +7,6 @@ from app.main import app
 from app.db import get_session
 from app.auth import get_current_user
 from app.models import User
-import os
 
 # Use an in-memory SQLite database for testing
 sqlite_url = "sqlite://"

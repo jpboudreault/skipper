@@ -1,4 +1,4 @@
-from fastapi import FastAPI, Depends, HTTPException, status, Request
+from fastapi import FastAPI, Depends, HTTPException, Request
 from fastapi.middleware.cors import CORSMiddleware
 from sqlmodel import Session, select
 from app.models import Team, Player, PositionScore, User, PlayerUpdate, PlayerCreate
@@ -6,28 +6,31 @@ from app.db import engine, get_session, create_db_and_tables
 from typing import List
 from pydantic import BaseModel
 import os
-from dotenv import load_dotenv
 from app.auth import verify_google_token, verify_microsoft_token, login_user_by_email, get_current_user, get_active_team
 from app.i18n.errors import raise_api_error
-from datetime import datetime, timedelta
 
 import json
-import traceback
-import sys
+import logging
 from fastapi.responses import JSONResponse
 from app.i18n import parse_locale, localize_detail, translate
+
+logging.basicConfig(
+    level=os.environ.get("LOG_LEVEL", "INFO").upper(),
+    format="%(asctime)s %(levelname)s %(name)s: %(message)s",
+)
+logger = logging.getLogger("skipper")
 
 def seed_tenants_and_admins():
     config_path = os.path.join(os.path.dirname(__file__), "tenants.json")
     if not os.path.exists(config_path):
-        print(f"Tenants config not found at {config_path}, skipping multi-tenant seed.")
+        logger.info("Tenants config not found at %s, skipping multi-tenant seed.", config_path)
         return
-        
+
     try:
         with open(config_path, "r", encoding="utf-8") as f:
             tenants = json.load(f)
     except Exception as e:
-        print(f"Failed to read tenants config: {e}")
+        logger.error("Failed to read tenants config: %s", e)
         return
 
     with Session(engine) as session:
@@ -47,7 +50,7 @@ def seed_tenants_and_admins():
             )
             
             if not team:
-                print(f"Seeding team: {tenant['name']} for season {tenant['season']}")
+                logger.info("Seeding team: %s for season %s", tenant['name'], tenant['season'])
                 team = Team(
                     name=tenant["name"],
                     season=tenant["season"],
@@ -96,7 +99,7 @@ def seed_tenants_and_admins():
                     continue
                 user = session.exec(select(User).where(User.email == email)).first()
                 if not user:
-                    print(f"Seeding admin user: {email}")
+                    logger.info("Seeding admin user: %s", email)
                     user = User(email=email, is_active=True)
                     session.add(user)
                     session.commit()
@@ -107,31 +110,41 @@ def seed_tenants_and_admins():
                     select(UserTeamLink).where(UserTeamLink.user_id == user.id, UserTeamLink.team_id == team.id)
                 ).first()
                 if not link:
-                    print(f"Linking user {email} to team {team.name}")
+                    logger.info("Linking user %s to team %s", email, team.name)
                     new_link = UserTeamLink(user_id=user.id, team_id=team.id)
                     session.add(new_link)
                     session.commit()
 
 app = FastAPI(title="Skipper API")
 
+# CORS origins are configurable via CORS_ALLOW_ORIGINS (comma-separated). The API
+# authenticates with bearer tokens (not cookies), so when origins are wide open ("*")
+# we must keep allow_credentials=False to stay spec-compliant.
+_cors_origins_env = os.environ.get("CORS_ALLOW_ORIGINS", "*").strip()
+if _cors_origins_env == "*":
+    _allow_origins = ["*"]
+    _allow_credentials = False
+else:
+    _allow_origins = [o.strip() for o in _cors_origins_env.split(",") if o.strip()]
+    _allow_credentials = True
+
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"],
-    allow_credentials=True,
+    allow_origins=_allow_origins,
+    allow_credentials=_allow_credentials,
     allow_methods=["*"],
     allow_headers=["*"],
 )
 
 @app.exception_handler(Exception)
 async def unhandled_exception_handler(request: Request, exc: Exception):
-    print("\n" + "="*80)
-    print("!!! HTTP 500 INTERNAL SERVER ERROR !!!")
-    print(f"Path: {request.url.path}")
-    print(f"Method: {request.method}")
-    print(f"Exception: {type(exc).__name__}: {exc}")
-    print("="*80)
-    traceback.print_exception(type(exc), exc, exc.__traceback__, file=sys.stderr)
-    print("="*80 + "\n")
+    logger.error(
+        "Unhandled 500 on %s %s: %s",
+        request.method,
+        request.url.path,
+        f"{type(exc).__name__}: {exc}",
+        exc_info=exc,
+    )
     locale = parse_locale(request.headers.get("accept-language"))
     return JSONResponse(
         status_code=500,
@@ -141,12 +154,9 @@ async def unhandled_exception_handler(request: Request, exc: Exception):
 @app.exception_handler(HTTPException)
 async def custom_http_exception_handler(request: Request, exc: HTTPException):
     if exc.status_code == 500:
-        print("\n" + "="*80)
-        print("!!! HTTP 500 INTERNAL SERVER ERROR (HTTPException) !!!")
-        print(f"Path: {request.url.path}")
-        print(f"Method: {request.method}")
-        print(f"Detail: {exc.detail}")
-        print("="*80 + "\n")
+        logger.error(
+            "HTTP 500 on %s %s: %s", request.method, request.url.path, exc.detail
+        )
     locale = parse_locale(request.headers.get("accept-language"))
     detail = localize_detail(exc.detail, locale)
     return JSONResponse(status_code=exc.status_code, content={"detail": detail})
@@ -177,6 +187,11 @@ def run_migrations():
             ("team", "integration_version", "ALTER TABLE team ADD COLUMN integration_version TEXT"),
             ("team", "integration_config_json", "ALTER TABLE team ADD COLUMN integration_config_json TEXT"),
             ("availability", "injury_inning", "ALTER TABLE availability ADD COLUMN injury_inning INTEGER"),
+            # Audit timestamps (nullable for pre-existing rows; SQLite disallows CURRENT_TIMESTAMP defaults on ADD COLUMN)
+            ("player", "created_at", "ALTER TABLE player ADD COLUMN created_at TIMESTAMP"),
+            ("player", "updated_at", "ALTER TABLE player ADD COLUMN updated_at TIMESTAMP"),
+            ("game", "created_at", "ALTER TABLE game ADD COLUMN created_at TIMESTAMP"),
+            ("game", "updated_at", "ALTER TABLE game ADD COLUMN updated_at TIMESTAMP"),
         ]
         for table, col, sql in migrations:
             try:
@@ -184,15 +199,15 @@ def run_migrations():
                 result = conn.execute(text(f"PRAGMA table_info({table})"))
                 cols = [row[1] for row in result.fetchall()]
                 if col not in cols:
-                    print(f"[migration] Adding column '{col}' to table '{table}'")
+                    logger.info("[migration] Adding column '%s' to table '%s'", col, table)
                     conn.execute(text(sql))
                     conn.commit()
             except Exception as e:
-                print(f"[migration] Skipped {table}.{col}: {e}")
+                logger.warning("[migration] Skipped %s.%s: %s", table, col, e)
 
 @app.on_event("startup")
 def on_startup():
-    dev_mode = os.environ.get("DEV_MODE", "true").lower() == "true"
+    dev_mode = os.environ.get("DEV_MODE", "false").lower() == "true"
     if not dev_mode:
         secret = os.environ.get("JWT_SECRET", "")
         if not secret or secret == "super-secret-default-key":

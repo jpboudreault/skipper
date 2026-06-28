@@ -1,57 +1,47 @@
 from fastapi import APIRouter, Depends
-from sqlmodel import Session
+from datetime import date
+from sqlmodel import Session, or_, select
 from app.db import get_session
-from app.stats import get_season_batting, get_season_pitching, get_season_position, get_pitching_plan
+from app.stats import (
+    get_season_batting,
+    get_season_pitching,
+    get_season_position,
+    get_pitching_plan,
+    get_development_trends,
+)
 from typing import List, Dict, Any
-from app.auth import get_current_user
-from app.models import User
-from app.i18n.errors import raise_api_error
+from app.auth import get_team_membership
+from app.models import Game, Team
+from app.game_intel import serialize_games_with_intel
 
 router = APIRouter(prefix="/teams/{team_id}/stats", tags=["stats"])
 
 @router.get("/batting")
-def season_batting(team_id: int, session: Session = Depends(get_session), current_user: User = Depends(get_current_user)) -> List[Dict[str, Any]]:
-    current_user = session.get(User, current_user.id)
-    if team_id not in {t.id for t in current_user.teams}:
-        raise_api_error(403, "not_authorized_for_team")
-    return get_season_batting(team_id, session)
+def season_batting(team: Team = Depends(get_team_membership), session: Session = Depends(get_session)) -> List[Dict[str, Any]]:
+    return get_season_batting(team.id, session)
 
 @router.get("/pitching")
-def season_pitching(team_id: int, session: Session = Depends(get_session), current_user: User = Depends(get_current_user)) -> List[Dict[str, Any]]:
-    current_user = session.get(User, current_user.id)
-    if team_id not in {t.id for t in current_user.teams}:
-        raise_api_error(403, "not_authorized_for_team")
-    return get_season_pitching(team_id, session)
+def season_pitching(team: Team = Depends(get_team_membership), session: Session = Depends(get_session)) -> List[Dict[str, Any]]:
+    return get_season_pitching(team.id, session)
 
 @router.get("/position")
-def season_position(team_id: int, session: Session = Depends(get_session), current_user: User = Depends(get_current_user)) -> List[Dict[str, Any]]:
-    current_user = session.get(User, current_user.id)
-    if team_id not in {t.id for t in current_user.teams}:
-        raise_api_error(403, "not_authorized_for_team")
-    return get_season_position(team_id, session)
+def season_position(team: Team = Depends(get_team_membership), session: Session = Depends(get_session)) -> List[Dict[str, Any]]:
+    return get_season_position(team.id, session)
 
 @router.get("/pitching-plan")
-def pitching_plan(team_id: int, session: Session = Depends(get_session), current_user: User = Depends(get_current_user)) -> Dict[str, Any]:
-    current_user = session.get(User, current_user.id)
-    if team_id not in {t.id for t in current_user.teams}:
-        raise_api_error(403, "not_authorized_for_team")
-    return get_pitching_plan(team_id, session)
+def pitching_plan(team: Team = Depends(get_team_membership), session: Session = Depends(get_session)) -> Dict[str, Any]:
+    return get_pitching_plan(team.id, session)
 
-from datetime import date
-from sqlmodel import or_, select
-from app.models import Game, Team
-from app.game_intel import serialize_games_with_intel
+@router.get("/trends")
+def development_trends(team: Team = Depends(get_team_membership), session: Session = Depends(get_session)) -> Dict[str, Any]:
+    return get_development_trends(team.id, session)
 
 def _serialize_upcoming_games(games: List[Game], team: Team) -> List[dict]:
     return serialize_games_with_intel(games, team)
 
 @router.get("/dashboard")
-def team_dashboard(team_id: int, session: Session = Depends(get_session), current_user: User = Depends(get_current_user)) -> Dict[str, Any]:
-    current_user = session.get(User, current_user.id)
-    if team_id not in {t.id for t in current_user.teams}:
-        raise_api_error(403, "not_authorized_for_team")
-
-    team = session.get(Team, team_id)
+def team_dashboard(team: Team = Depends(get_team_membership), session: Session = Depends(get_session)) -> Dict[str, Any]:
+    team_id = team.id
     team_name = team.name if team else "Home Team"
 
     today = date.today()
@@ -103,18 +93,9 @@ def team_dashboard(team_id: int, session: Session = Depends(get_session), curren
 
 @router.post("/dashboard/warmup")
 def dashboard_warmup(
-    team_id: int,
+    team: Team = Depends(get_team_membership),
     session: Session = Depends(get_session),
-    current_user: User = Depends(get_current_user),
 ) -> Dict[str, Any]:
-    current_user = session.get(User, current_user.id)
-    if team_id not in {t.id for t in current_user.teams}:
-        raise_api_error(403, "not_authorized_for_team")
-
-    team = session.get(Team, team_id)
-    if team is None:
-        raise_api_error(404, "team_not_found")
-
     from app.league_integrations.warmup import warmup_dashboard
 
     return warmup_dashboard(session, team)

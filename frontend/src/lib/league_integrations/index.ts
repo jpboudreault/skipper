@@ -9,7 +9,9 @@ export const opponentIntelComponents: Record<string, Component<OpponentIntelProp
 	lfbq_spordle: LfbqSpordleOpponentIntel
 };
 
-export function getOpponentIntelComponent(version?: string | null): Component<OpponentIntelProps> | null {
+export function getOpponentIntelComponent(
+	version?: string | null
+): Component<OpponentIntelProps> | null {
 	if (!version) return null;
 	return opponentIntelComponents[version] ?? null;
 }

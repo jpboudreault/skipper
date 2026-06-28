@@ -4,7 +4,7 @@ from fastapi import Depends
 from app.main import app
 from app.db import get_session
 from app.auth import get_current_user
-from app.models import User, Team, UserTeamLink
+from app.models import User
 from sqlmodel import Session, select, SQLModel, create_engine
 from sqlalchemy.pool import StaticPool
 

@@ -1,0 +1,12 @@
+# Ruff configuration for the Skipper FastAPI backend.
+#
+# We scope to pyflakes ("F") which catches real problems (unused imports,
+# undefined names, redefinitions) without fighting SQLModel idioms. Notably the
+# pycodestyle E712 rule (`== True`/`== False`) is intentionally NOT enabled
+# because SQLModel/SQLAlchemy query filters require those comparisons.
+line-length = 120
+
+[lint]
+select = ["F"]
+# F841 (assigned-but-unused local) is noisy, especially in tests; skip it.
+ignore = ["F841"]

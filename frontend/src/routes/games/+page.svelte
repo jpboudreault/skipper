@@ -11,9 +11,7 @@
 		homeAwayBadgeClass,
 		resultBadgeClass
 	} from '$lib/games';
-
-	let { data } = $props();
-	const token = $derived(data.user?.token);
+	import { activeTeam } from '$lib/teamContext';
 
 	let games: any[] = $state([]);
 	let intelByGameId: Record<number, any> = $state({});
@@ -21,7 +19,6 @@
 	let syncing = $state(false);
 	let syncMessage = $state('');
 	let showCreate = $state(false);
-	let teams: any[] = $state([]);
 	let activeTab = $state('upcoming');
 	let pitchingPlanData: any = $state(null);
 	let loadingPitching = $state(false);
@@ -61,9 +58,11 @@
 		tie: 'common_tie'
 	};
 
-	let activeTeam = $derived(
-		teams.find((t: any) => t.id.toString() === sessionStorage.getItem('activeTeamId')) ?? teams[0] ?? null
-	);
+	$effect(() => {
+		if ($activeTeam && !newGame.league) {
+			newGame.league = $activeTeam.default_league || '';
+		}
+	});
 
 	let { upcoming, past } = $derived(splitGames(games));
 	let nextGame = $derived(upcoming[0] ?? null);
@@ -107,16 +106,8 @@
 
 	async function fetchData() {
 		try {
-			const [gamesRes, teamsRes] = await Promise.all([apiFetch('/games/'), apiFetch('/teams/')]);
+			const gamesRes = await apiFetch('/games/');
 			if (gamesRes.ok) games = await gamesRes.json();
-			if (teamsRes.ok) {
-				teams = await teamsRes.json();
-				const activeId = sessionStorage.getItem('activeTeamId');
-				if (teams.length > 0) {
-					const activeTeam = teams.find((t: any) => t.id.toString() === activeId) || teams[0];
-					newGame.league = activeTeam.default_league || '';
-				}
-			}
 			await fetchUpcomingIntel();
 		} catch (e) {
 			console.error(e);
@@ -184,7 +175,7 @@
 
 		loadingPitching = true;
 		try {
-			const activeId = sessionStorage.getItem('activeTeamId');
+			const activeId = $activeTeam?.id;
 			if (!activeId) return;
 			const res = await apiFetch(`/teams/${activeId}/stats/pitching-plan`);
 			if (res.ok) {
@@ -202,7 +193,7 @@
 	{@const intel = intelForGame(game.id)}
 	<div
 		class="{hero
-			? 'bg-primary/5 border-2 border-primary shadow-lg'
+			? 'bg-primary/5 border-primary border-2 shadow-lg'
 			: 'bg-base-200/50 border-base-200'} rounded-lg border p-4"
 	>
 		<div class="mb-2 flex flex-wrap items-center justify-between gap-2">
@@ -228,7 +219,9 @@
 		</div>
 		<a
 			href="/games/{game.id}"
-			class="mb-3 block font-bold hover:text-primary transition-colors {hero ? 'text-2xl' : 'text-lg'}"
+			class="hover:text-primary mb-3 block font-bold transition-colors {hero
+				? 'text-2xl'
+				: 'text-lg'}"
 		>
 			{formatOpponentMatchup(game.home_away, game.opponent, {
 				vsLabel: $t('dashboard_vs'),
@@ -246,7 +239,9 @@
 				class="btn btn-primary btn-sm min-w-[5.5rem] flex-1 {hero ? 'btn-md' : ''}"
 				>{$t('dashboard_overview')}</a
 			>
-			<a href="/games/{game.id}/lineup" class="btn btn-outline btn-sm min-w-[5.5rem] flex-1 {hero ? 'btn-md' : ''}"
+			<a
+				href="/games/{game.id}/lineup"
+				class="btn btn-outline btn-sm min-w-[5.5rem] flex-1 {hero ? 'btn-md' : ''}"
 				>{$t('dashboard_lineup')}</a
 			>
 			<a
@@ -273,7 +268,7 @@
 			>
 				{showCreate ? $t('games_cancel') : $t('games_new_game')}
 			</button>
-			{#if activeTeam?.integration_version}
+			{#if $activeTeam?.integration_version}
 				<button
 					onclick={syncSchedule}
 					class="btn btn-outline btn-secondary shadow-md"
@@ -327,7 +322,9 @@
 				<h3 class="text-base-content mb-4 text-lg font-bold">{$t('games_create_new_game')}</h3>
 				<div class="grid grid-cols-1 gap-4 sm:grid-cols-3">
 					<div class="form-control">
-						<label for="date" class="label"><span class="label-text">{$t('common_date')}</span></label>
+						<label for="date" class="label"
+							><span class="label-text">{$t('common_date')}</span></label
+						>
 						<input
 							id="date"
 							type="date"
@@ -360,7 +357,9 @@
 						/>
 					</div>
 					<div class="form-control">
-						<label for="venue" class="label"><span class="label-text">{$t('games_venue')}</span></label>
+						<label for="venue" class="label"
+							><span class="label-text">{$t('games_venue')}</span></label
+						>
 						<input
 							id="venue"
 							type="text"
@@ -410,7 +409,9 @@
 						</select>
 					</div>
 					<div class="form-control">
-						<label for="league" class="label"><span class="label-text">{$t('games_league')}</span></label>
+						<label for="league" class="label"
+							><span class="label-text">{$t('games_league')}</span></label
+						>
 						<input
 							id="league"
 							type="text"
@@ -421,7 +422,9 @@
 					</div>
 				</div>
 				<div class="mt-6 flex justify-end">
-					<button onclick={createGame} class="btn btn-success btn-sm">{$t('games_create_game')}</button>
+					<button onclick={createGame} class="btn btn-success btn-sm"
+						>{$t('games_create_game')}</button
+					>
 				</div>
 			</div>
 		{/if}

@@ -1,6 +1,6 @@
 """Registry for league-specific integrations (schedule intel, etc.)."""
 
-from typing import Any, Callable, Dict, List, Optional
+from typing import Callable, Dict, List, Optional
 
 from app.models import Game, Team
 

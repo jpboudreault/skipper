@@ -13,12 +13,12 @@ Runs at `http://localhost:5173` and proxies `/api/*` requests to the FastAPI bac
 
 ## Scripts
 
-| Command | Description |
-|---------|-------------|
-| `npm run dev` | Start dev server |
-| `npm run build` | Production build |
-| `npm run check` | TypeScript + Svelte type check |
-| `npx playwright test` | Run E2E tests |
+| Command               | Description                    |
+| --------------------- | ------------------------------ |
+| `npm run dev`         | Start dev server               |
+| `npm run build`       | Production build               |
+| `npm run check`       | TypeScript + Svelte type check |
+| `npx playwright test` | Run E2E tests                  |
 
 ## Key paths
 

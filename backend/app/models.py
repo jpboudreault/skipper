@@ -46,6 +46,10 @@ class Player(SQLModel, table=True):
     is_substitute: bool = Field(default=False)
     is_coach: bool = Field(default=False)
     coach_type: Optional[str] = Field(default=None)
+    created_at: Optional[datetime] = Field(default_factory=datetime.utcnow)
+    updated_at: Optional[datetime] = Field(
+        default_factory=datetime.utcnow, sa_column_kwargs={"onupdate": datetime.utcnow}
+    )
 
     team: Optional[Team] = Relationship(back_populates="players")
     position_scores: List["PositionScore"] = Relationship(back_populates="player")
@@ -95,6 +99,10 @@ class Game(SQLModel, table=True):
     notes: Optional[str] = None
     external_source: Optional[str] = None
     external_game_id: Optional[str] = None
+    created_at: Optional[datetime] = Field(default_factory=datetime.utcnow)
+    updated_at: Optional[datetime] = Field(
+        default_factory=datetime.utcnow, sa_column_kwargs={"onupdate": datetime.utcnow}
+    )
 
 class GameCreate(SQLModel):
     date: date
@@ -159,3 +167,14 @@ class Lineup(SQLModel, table=True):
     player_id: int = Field(foreign_key="player.id", primary_key=True)
     position: int  # 1-9 field, 0 = bench
     locked: bool = Field(default=False)
+
+class LineupSnapshot(SQLModel, table=True):
+    """A saved copy of a game's lineup grid, used for history/undo.
+
+    ``cells_json`` stores a JSON list of {inning, player_id, position, locked}.
+    """
+    id: Optional[int] = Field(default=None, primary_key=True)
+    game_id: int = Field(foreign_key="game.id", index=True)
+    label: str = Field(default="snapshot")
+    cells_json: str = Field(default="[]")
+    created_at: Optional[datetime] = Field(default_factory=datetime.utcnow)

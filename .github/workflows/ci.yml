@@ -18,6 +18,9 @@ jobs:
         run: |
           cd backend
           pip install -r requirements.txt
+          pip install ruff
+      - name: Lint (ruff)
+        run: ruff check backend
       - name: Run tests
         run: PYTHONPATH=./backend pytest backend/tests/
 
@@ -32,5 +35,7 @@ jobs:
           cache-dependency-path: frontend/package-lock.json
       - name: Install dependencies
         run: cd frontend && npm ci
+      - name: Lint (prettier + eslint)
+        run: cd frontend && npm run lint
       - name: Type check
         run: cd frontend && npm run check

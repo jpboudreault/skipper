@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 from datetime import datetime, timezone
-from typing import Any, Dict, List, Optional
+from typing import Dict, List, Optional
 
 from app.league_integrations.lfbq_spordle.client import SpordleClient
 from app.league_integrations.lfbq_spordle.config import (

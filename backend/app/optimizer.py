@@ -22,7 +22,7 @@ Hard constraints (from baseball-lineup-plan.md §5.2):
 
 from ortools.sat.python import cp_model
 import math
-from typing import Dict, List, Tuple, Optional
+from typing import Dict, List, Optional
 from dataclasses import dataclass
 
 

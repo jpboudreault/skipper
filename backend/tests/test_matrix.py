@@ -1,6 +1,5 @@
 import pytest
 from httpx import AsyncClient
-from app.models import Team, Player
 
 @pytest.mark.asyncio
 async def test_update_and_get_position_scores(client: AsyncClient, session):

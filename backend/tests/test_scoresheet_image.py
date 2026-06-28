@@ -1,6 +1,5 @@
 """Unit tests for scoresheet row detection and row tile prep."""
 
-import io
 from pathlib import Path
 
 from PIL import Image

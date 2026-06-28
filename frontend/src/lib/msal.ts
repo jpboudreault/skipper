@@ -1,4 +1,8 @@
-import { PublicClientApplication, type AuthenticationResult, type IPublicClientApplication } from '@azure/msal-browser';
+import {
+	PublicClientApplication,
+	type AuthenticationResult,
+	type IPublicClientApplication
+} from '@azure/msal-browser';
 
 export const MICROSOFT_CALLBACK_PATH = '/auth/callback/microsoft';
 export const MICROSOFT_SCOPES = ['openid', 'profile', 'email'];

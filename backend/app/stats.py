@@ -147,6 +147,74 @@ def get_season_position(team_id: int, session: Session) -> List[Dict[str, Any]]:
     results.sort(key=lambda x: x["jersey"])
     return results
 
+_BATTING_COUNT_KEYS = [
+    "singles", "doubles", "triples", "hr", "bb", "bbi", "hbp",
+    "sac", "intf", "kd", "ke", "outs_not_k", "fc", "roe",
+]
+
+
+def get_development_trends(team_id: int, session: Session) -> Dict[str, Any]:
+    """Season-over-time development data.
+
+    Returns the team's cumulative batting line (AVG/OBP/SLG/OPS) after each
+    completed game, plus per-player position variety (a key 'develop' metric).
+    """
+    games = session.exec(
+        select(Game)
+        .where(Game.team_id == team_id, Game.result_runs_for.is_not(None))
+        .order_by(Game.date, Game.id)
+    ).all()
+    game_ids = [g.id for g in games]
+
+    lines_by_game: Dict[int, list] = {}
+    if game_ids:
+        lines = session.exec(
+            select(BattingLine)
+            .join(Player)
+            .where(Player.team_id == team_id, BattingLine.game_id.in_(game_ids))
+        ).all()
+        for ln in lines:
+            lines_by_game.setdefault(ln.game_id, []).append(ln)
+
+    cumulative = []
+    tot = {k: 0 for k in _BATTING_COUNT_KEYS}
+    for g in games:
+        for ln in lines_by_game.get(g.id, []):
+            for k in _BATTING_COUNT_KEYS:
+                tot[k] += getattr(ln, k)
+        H = tot["singles"] + tot["doubles"] + tot["triples"] + tot["hr"]
+        AB = H + tot["kd"] + tot["ke"] + tot["outs_not_k"] + tot["fc"] + tot["roe"]
+        obp_denom = AB + tot["bb"] + tot["bbi"] + tot["hbp"] + tot["sac"]
+        avg = H / AB if AB > 0 else 0.0
+        obp = (H + tot["bb"] + tot["bbi"] + tot["hbp"]) / obp_denom if obp_denom > 0 else 0.0
+        slg = (tot["singles"] + 2 * tot["doubles"] + 3 * tot["triples"] + 4 * tot["hr"]) / AB if AB > 0 else 0.0
+        cumulative.append({
+            "game_id": g.id,
+            "date": g.date.isoformat(),
+            "opponent": g.opponent,
+            "avg": round(avg, 3),
+            "obp": round(obp, 3),
+            "slg": round(slg, 3),
+            "ops": round(obp + slg, 3),
+        })
+
+    position_data = get_season_position(team_id, session)
+    variety = []
+    for s in position_data:
+        distinct = sum(1 for pos, cnt in s["positions"].items() if pos != "0" and cnt > 0)
+        variety.append({
+            "player_id": s["player_id"],
+            "name": s["name"],
+            "jersey": s["jersey"],
+            "distinct_positions": distinct,
+            "total_innings": s["total_innings"],
+            "bench_pct": s["bench_pct"],
+        })
+    variety.sort(key=lambda x: (-x["distinct_positions"], x["jersey"]))
+
+    return {"cumulative_batting": cumulative, "position_variety": variety}
+
+
 from datetime import date, timedelta
 
 def get_pitching_plan(team_id: int, session: Session) -> Dict[str, Any]:

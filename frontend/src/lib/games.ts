@@ -36,8 +36,12 @@ export function isPastGame(game: GameLike, today = todayIso()): boolean {
 }
 
 export function splitGames<T extends GameLike>(games: T[], today = todayIso()) {
-	const upcoming = games.filter((g) => isUpcomingGame(g, today)).sort((a, b) => a.date.localeCompare(b.date));
-	const past = games.filter((g) => isPastGame(g, today)).sort((a, b) => b.date.localeCompare(a.date));
+	const upcoming = games
+		.filter((g) => isUpcomingGame(g, today))
+		.sort((a, b) => a.date.localeCompare(b.date));
+	const past = games
+		.filter((g) => isPastGame(g, today))
+		.sort((a, b) => b.date.localeCompare(a.date));
 	return { upcoming, past };
 }
 
