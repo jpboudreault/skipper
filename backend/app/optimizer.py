@@ -36,6 +36,7 @@ class PlayerInfo:
     pitcher_innings_last_7_days: int      # rolling 7-day pitcher innings
     is_pitch_eligible: bool               # can they pitch today?
     injury_inning: Optional[int] = None   # 1-indexed inning they got injured
+    max_pitcher_innings_this_game: Optional[int] = None
 
 
 @dataclass
@@ -140,11 +141,15 @@ def solve_lineup(
                 # If pitched now AND didn't pitch next, then can't pitch later
                 model.Add(x[pi, j, 1] == 0).OnlyEnforceIf(b_pitched_now, b_not_next)
 
-    # H6: Pitcher innings cap (game)
-    for pi in range(num_players):
+    # H6: Pitcher innings cap (game). Some players may have a lower same-day
+    # remainder because of earlier games on the same date.
+    for pi, p in enumerate(players):
+        game_cap = config.max_pitcher_innings_per_game
+        if p.max_pitcher_innings_this_game is not None:
+            game_cap = max(0, min(game_cap, p.max_pitcher_innings_this_game))
         model.Add(
             sum(x[pi, inn, 1] for inn in range(num_innings))
-            <= config.max_pitcher_innings_per_game
+            <= game_cap
         )
 
     # H6b: Pitcher innings cap (7-day rolling)

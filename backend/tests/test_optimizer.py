@@ -91,6 +91,31 @@ def test_pitcher_innings_cap():
         assert pitching_innings <= 2, f"Player {p.id} pitched {pitching_innings} innings (max 2)"
 
 
+def test_player_specific_pitcher_game_cap():
+    """A player's same-day remainder can be lower than the team game cap."""
+    players = make_players(10)
+    players[0].position_scores = {pos: 0 for pos in range(1, 10)}
+    players[0].position_scores[1] = 10
+    players[0].max_pitcher_innings_this_game = 1
+    config = OptimizerConfig(
+        innings=5,
+        max_pitcher_innings_per_game=2,
+        max_pitcher_innings_per_7_days=4,
+        late_inning_weight=1.5,
+        mode="compete",
+    )
+    locked = [LockedCell(player_id=1, inning=1, position=1)]
+
+    result = solve_lineup(players, config, locked)
+    assert result.status in ("optimal", "feasible")
+
+    p1_pitching = [
+        a for a in result.assignments
+        if a["player_id"] == 1 and a["position"] == 1
+    ]
+    assert len(p1_pitching) == 1
+
+
 def test_locked_cells():
     """Locked cells should be respected by the solver."""
     players = make_players(10)
