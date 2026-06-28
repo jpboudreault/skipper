@@ -1,0 +1,30 @@
+{
+  "image": "scenario_04.jpeg",
+  "scoresheet_version": "baseball_quebec",
+  "roster": [
+    { "id": 1, "jersey": 53 },
+    { "id": 2, "jersey": 44 },
+    { "id": 3, "jersey": 41},
+    { "id": 4, "jersey": 40 },
+    { "id": 5, "jersey": 50 },
+    { "id": 6, "jersey": 46 },
+    { "id": 7, "jersey": 42 },
+    { "id": 7, "jersey": 14 },
+    { "id": 7, "jersey": 48 },
+    { "id": 7, "jersey": 17 },
+    { "id": 7, "jersey": 45 }
+  ],
+  "expected": [
+    { "jersey": 53, "singles": 0, "doubles": 0, "triples": 0, "hr": 0, "bb": 0, "bbi": 0, "hbp": 0, "sac": 0, "intf": 0, "kd": 0, "ke": 0, "outs_not_k": 3, "fc": 0, "roe": 0, "rbi": 0, "r": 0, "sb": 0 },
+    { "jersey": 44, "singles": 0, "doubles": 0, "triples": 0, "hr": 0, "bb": 2, "bbi": 0, "hbp": 0, "sac": 0, "intf": 0, "kd": 0, "ke": 0, "outs_not_k": 0, "fc": 0, "roe": 0, "rbi": 1, "r": 2, "sb": 5 },
+    { "jersey": 41, "singles": 0, "doubles": 0, "triples": 0, "hr": 0, "bb": 1, "bbi": 0, "hbp": 0, "sac": 0, "intf": 0, "kd": 0, "ke": 1, "outs_not_k": 0, "fc": 0, "roe": 0, "rbi": 0, "r": 2, "sb": 2 },
+    { "jersey": 40, "singles": 0, "doubles": 0, "triples": 0, "hr": 0, "bb": 1, "bbi": 0, "hbp": 0, "sac": 0, "intf": 0, "kd": 0, "ke": 0, "outs_not_k": 1, "fc": 0, "roe": 0, "rbi": 2, "r": 1, "sb": 2 },
+    { "jersey": 50, "singles": 0, "doubles": 0, "triples": 0, "hr": 0, "bb": 1, "bbi": 0, "hbp": 0, "sac": 0, "intf": 0, "kd": 0, "ke": 0, "outs_not_k": 1, "fc": 0, "roe": 0, "rbi": 1, "r": 0, "sb": 1 },
+    { "jersey": 46, "singles": 0, "doubles": 0, "triples": 0, "hr": 0, "bb": 1, "bbi": 0, "hbp": 0, "sac": 0, "intf": 0, "kd": 0, "ke": 1, "outs_not_k": 1, "fc": 0, "roe": 0, "rbi": 0, "r": 1, "sb": 0 },
+    { "jersey": 42, "singles": 1, "doubles": 0, "triples": 0, "hr": 0, "bb": 1, "bbi": 0, "hbp": 0, "sac": 0, "intf": 0, "kd": 0, "ke": 0, "outs_not_k": 0, "fc": 0, "roe": 0, "rbi": 0, "r": 1, "sb": 4 },
+    { "jersey": 14, "singles": 0, "doubles": 0, "triples": 0, "hr": 0, "bb": 0, "bbi": 0, "hbp": 0, "sac": 0, "intf": 0, "kd": 0, "ke": 1, "outs_not_k": 0, "fc": 0, "roe": 0, "rbi": 2, "r": 1, "sb": 1 },
+    { "jersey": 48, "singles": 0, "doubles": 0, "triples": 1, "hr": 0, "bb": 0, "bbi": 0, "hbp": 0, "sac": 0, "intf": 0, "kd": 0, "ke": 0, "outs_not_k": 1, "fc": 0, "roe": 0, "rbi": 1, "r": 1, "sb": 0 },
+    { "jersey": 17, "singles": 0, "doubles": 0, "triples": 0, "hr": 0, "bb": 2, "bbi": 0, "hbp": 0, "sac": 0, "intf": 0, "kd": 0, "ke": 0, "outs_not_k": 0, "fc": 0, "roe": 0, "rbi": 0, "r": 1, "sb": 3 },
+    { "jersey": 45, "singles": 1, "doubles": 0, "triples": 0, "hr": 0, "bb": 0, "bbi": 0, "hbp": 0, "sac": 0, "intf": 0, "kd": 0, "ke": 0, "outs_not_k": 1, "fc": 0, "roe": 0, "rbi": 1, "r": 1, "sb": 0 }
+  ]
+}

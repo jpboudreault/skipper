@@ -1,0 +1,14 @@
+{
+  "image": "_template.jpg",
+  "scoresheet_version": "baseball_quebec",
+  "roster": [
+    { "id": 1, "jersey": 3, "first_name": "Player", "last_name": "A" },
+    { "id": 2, "jersey": 12, "first_name": "Player", "last_name": "B" },
+    { "id": 3, "jersey": 7, "first_name": "Player", "last_name": "C" }
+  ],
+  "expected": [
+    { "jersey": 3, "singles": 1, "r": 1, "sb": 1 },
+    { "jersey": 12, "doubles": 1, "rbi": 2, "r": 1 },
+    { "jersey": 7, "ke": 1 }
+  ]
+}

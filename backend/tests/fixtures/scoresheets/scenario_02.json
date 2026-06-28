@@ -1,0 +1,22 @@
+{
+  "image": "scenario_02.jpg",
+  "scoresheet_version": "baseball_quebec",
+  "roster": [
+    { "id": 1, "jersey": 44 },
+    { "id": 2, "jersey": 43 },
+    { "id": 3, "jersey": 41},
+    { "id": 4, "jersey": 42 },
+    { "id": 5, "jersey": 50 },
+    { "id": 6, "jersey": 40 },
+    { "id": 7, "jersey": 48 }
+  ],
+  "expected": [
+    { "jersey": 44, "singles": 2, "r": 2, "roe": 1, "outs_not_k": 1, "sb": 1 },
+    { "jersey": 43, "singles": 2, "doubles": 1, "r": 2, "outs_not_k": 1, "bb": 1, "rbi": 2, "sb": 2 },
+    { "jersey": 41, "doubles": 1, "r": 2, "roe": 1, "bb": 1, "hbp": 1, "sb": 1 },
+    { "jersey": 42, "singles": 1, "bb": 1, "outs_not_k": 1, "ke": 1 },
+    { "jersey": 50, "singles": 1, "outs_not_k": 1, "roe": 1, "r": 1, "sb": 1, "rbi": 1},
+    { "jersey": 40, "kd": 2, "outs_not_k": 1, "ke": 1 },
+    { "jersey": 48, "bb": 1, "roe": 1, "singles": 1, "r": 1, "rbi": 1}
+  ]
+}

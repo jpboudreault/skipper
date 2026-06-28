@@ -304,7 +304,7 @@ def test_infeasible_locked_forbidden_position():
 
 
 def test_bench_fairness_distribution():
-    """Verify that benching is distributed fairly (spread is at most 1)."""
+    """Strict bench-fairness mode prevents consecutive healthy bench innings."""
     players = make_players(11)
     config = OptimizerConfig(
         innings=6,
@@ -312,21 +312,128 @@ def test_bench_fairness_distribution():
         max_pitcher_innings_per_7_days=4,
         late_inning_weight=1.5,
         mode="compete",
+        strict_bench_fairness=True,
     )
     result = solve_lineup(players, config)
     assert result.status in ("optimal", "feasible")
 
-    # Count how many times each player sits
-    bench_counts = {p.id: 0 for p in players}
-    for a in result.assignments:
-        if a["position"] == 0:
-            bench_counts[a["player_id"]] += 1
+    # No player should be benched in back-to-back innings.
+    for p in players:
+        benched_innings = sorted(
+            a["inning"] for a in result.assignments
+            if a["player_id"] == p.id and a["position"] == 0
+        )
+        for i in range(len(benched_innings) - 1):
+            assert benched_innings[i + 1] - benched_innings[i] > 1, (
+                f"Player {p.id} benched consecutively: {benched_innings}"
+            )
 
-    # In a perfectly fair distribution of 12 bench appearances among 11 players:
-    # 10 players sit 1 time, 1 player sits 2 times, 0 players sit 0 times.
-    # The spread (max - min) should be exactly 1.
-    max_b = max(bench_counts.values())
-    min_b = min(bench_counts.values())
-    assert max_b - min_b <= 1, f"Bench spread is unfair: {bench_counts}"
+
+def test_h8_can_be_soft_when_enabled():
+    """When H8 is soft, catcher->pitcher next inning can be allowed."""
+    players = make_players(10)
+    config = OptimizerConfig(
+        innings=5,
+        max_pitcher_innings_per_game=3,
+        max_pitcher_innings_per_7_days=4,
+        late_inning_weight=1.5,
+        mode="compete",
+        h8_is_soft=True,
+    )
+
+    # Force a direct H8 violation with locks; solver should remain feasible.
+    locked = [
+        LockedCell(player_id=1, inning=2, position=2),  # catcher
+        LockedCell(player_id=1, inning=3, position=1),  # pitcher next inning
+    ]
+
+    result = solve_lineup(players, config, locked)
+    assert result.status in ("optimal", "feasible")
+
+
+def test_strict_bench_fairness_blocks_consecutive_bench():
+    """With strict fairness enabled, forcing back-to-back bench is infeasible."""
+    players = make_players(10)
+    config = OptimizerConfig(
+        innings=5,
+        max_pitcher_innings_per_game=3,
+        max_pitcher_innings_per_7_days=4,
+        late_inning_weight=1.5,
+        mode="compete",
+        strict_bench_fairness=True,
+    )
+
+    locked = [
+        LockedCell(player_id=1, inning=1, position=0),
+        LockedCell(player_id=1, inning=2, position=0),
+    ]
+    result = solve_lineup(players, config, locked)
+    assert result.status == "infeasible"
+
+
+def test_soft_early_infield_preference_compete():
+    """Compete mode prefers at least one infield inning in first 4 innings."""
+    players = make_players(9)
+    config = OptimizerConfig(
+        innings=5,
+        max_pitcher_innings_per_game=3,
+        max_pitcher_innings_per_7_days=4,
+        late_inning_weight=1.5,
+        mode="compete",
+    )
+
+    # Case A: force player 1 to outfield-only in first 4 innings (violation).
+    locks_violation = [
+        LockedCell(player_id=1, inning=1, position=7),
+        LockedCell(player_id=1, inning=2, position=7),
+        LockedCell(player_id=1, inning=3, position=7),
+        LockedCell(player_id=1, inning=4, position=7),
+    ]
+    result_violation = solve_lineup(players, config, locks_violation)
+    assert result_violation.status in ("optimal", "feasible")
+
+    # Case B: same shape, but include one infield inning in the first 4.
+    locks_satisfied = [
+        LockedCell(player_id=1, inning=1, position=6),
+        LockedCell(player_id=1, inning=2, position=7),
+        LockedCell(player_id=1, inning=3, position=7),
+        LockedCell(player_id=1, inning=4, position=7),
+    ]
+    result_satisfied = solve_lineup(players, config, locks_satisfied)
+    assert result_satisfied.status in ("optimal", "feasible")
+
+    assert result_satisfied.objective_value > result_violation.objective_value
+
+
+def test_soft_early_infield_preference_develop():
+    """Develop mode also prefers at least one infield inning in first 4 innings."""
+    players = make_players(9)
+    config = OptimizerConfig(
+        innings=5,
+        max_pitcher_innings_per_game=3,
+        max_pitcher_innings_per_7_days=4,
+        late_inning_weight=1.5,
+        mode="develop",
+    )
+
+    locks_violation = [
+        LockedCell(player_id=1, inning=1, position=7),
+        LockedCell(player_id=1, inning=2, position=7),
+        LockedCell(player_id=1, inning=3, position=7),
+        LockedCell(player_id=1, inning=4, position=7),
+    ]
+    result_violation = solve_lineup(players, config, locks_violation)
+    assert result_violation.status in ("optimal", "feasible")
+
+    locks_satisfied = [
+        LockedCell(player_id=1, inning=1, position=6),
+        LockedCell(player_id=1, inning=2, position=7),
+        LockedCell(player_id=1, inning=3, position=7),
+        LockedCell(player_id=1, inning=4, position=7),
+    ]
+    result_satisfied = solve_lineup(players, config, locks_satisfied)
+    assert result_satisfied.status in ("optimal", "feasible")
+
+    assert result_satisfied.objective_value > result_violation.objective_value
 
 
