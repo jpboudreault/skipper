@@ -471,6 +471,7 @@ def solve_game_lineup(game: Game = Depends(get_active_game), session: Session = 
 
     # Build PlayerInfo list with real rest eligibility
     player_infos = []
+    eligibility_by_player_id = {}
     for p in available_players:
         eligibility = get_pitcher_eligibility(
             player_id=p.id,
@@ -480,12 +481,20 @@ def solve_game_lineup(game: Game = Depends(get_active_game), session: Session = 
             session=session,
             exclude_game_id=game.id,
         )
+        eligibility_by_player_id[p.id] = eligibility
         forbidden = forbidden_by_player.get(p.id, set())
         if p.is_substitute:
             forbidden.add(1)
         
         avail_record = next((a for a in avails if a.player_id == p.id), None)
         injury_inning = avail_record.injury_inning if avail_record else None
+        game_pitcher_cap = None
+        if game.game_type in ("season", "postseason"):
+            game_pitcher_cap = min(
+                team.max_pitcher_innings_per_game,
+                eligibility.remaining_today,
+                eligibility.remaining_7_days,
+            )
             
         player_infos.append(PlayerInfo(
             id=p.id,
@@ -495,7 +504,8 @@ def solve_game_lineup(game: Game = Depends(get_active_game), session: Session = 
             forbidden_positions=forbidden,
             pitcher_innings_last_7_days=eligibility.innings_last_7_days,
             is_pitch_eligible=eligibility.eligible if not p.is_substitute else False,
-            injury_inning=injury_inning
+            injury_inning=injury_inning,
+            max_pitcher_innings_this_game=game_pitcher_cap,
         ))
 
     # Clean up and delete any existing lineup cells for players who are NOT available
@@ -571,14 +581,18 @@ def solve_game_lineup(game: Game = Depends(get_active_game), session: Session = 
                 )
                 
             # 7-day Cap
-            eligibility = get_pitcher_eligibility(
-                player_id=p.id,
-                game_date=game.date,
-                game_type=game.game_type,
-                team=team,
-                session=session,
-                exclude_game_id=game.id,
-            )
+            eligibility = eligibility_by_player_id[p.id]
+            remaining_today = eligibility.remaining_today
+            if game.game_type in ("season", "postseason") and len(pitching_innings) > remaining_today:
+                raise_api_error(
+                    400,
+                    "pitcher_day_cap",
+                    player_name=p_name,
+                    count=len(pitching_innings),
+                    remaining=remaining_today,
+                    pitched=eligibility.innings_today,
+                )
+
             remaining_7_days = team.max_pitcher_innings_per_7_days - eligibility.innings_last_7_days
             if remaining_7_days < 0:
                 remaining_7_days = 0
@@ -621,6 +635,16 @@ def solve_game_lineup(game: Game = Depends(get_active_game), session: Session = 
                         last_inning=pitching_innings[-1],
                         min_required=min_required,
                         max=team.max_pitcher_innings_per_game,
+                    )
+                if game.game_type in ("season", "postseason") and min_required > remaining_today:
+                    raise_api_error(
+                        400,
+                        "pitcher_reentry_day_cap",
+                        player_name=p_name,
+                        first_inning=pitching_innings[0],
+                        last_inning=pitching_innings[-1],
+                        min_required=min_required,
+                        remaining=remaining_today,
                     )
                 if min_required > remaining_7_days:
                     raise_api_error(

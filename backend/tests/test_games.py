@@ -1,8 +1,9 @@
 import pytest
+from datetime import date
 from httpx import AsyncClient
 from sqlmodel import select
 
-from app.models import Game
+from app.models import Game, Lineup, PitchingAppearance, PositionScore
 
 @pytest.mark.asyncio
 async def test_game_date_roundtrip_preserves_calendar_date(client: AsyncClient, session):
@@ -406,6 +407,123 @@ async def test_solve_lock_validations(client: AsyncClient, session):
     solve_res = await client.post(f"/games/{game['id']}/solve")
     assert solve_res.status_code == 400
     assert "Pitcher Re-entry violation" in solve_res.json()["detail"]
+
+
+@pytest.mark.asyncio
+async def test_solve_rejects_locks_over_same_day_pitcher_cap(client: AsyncClient, session):
+    team_res = await client.post("/teams/", json={
+        "name": "Daily Cap Team", "season": "2026", "innings_per_game": 5,
+        "max_pitcher_innings_per_game": 2, "max_pitcher_innings_per_7_days": 4,
+        "late_inning_weight": 1.5, "language": "en", "pitch_count_rules_json": "{}"
+    })
+    team = team_res.json()
+
+    player_ids = []
+    for i in range(9):
+        p_res = await client.post("/players/", json={
+            "first_name": f"P{i}", "last_name": "Player", "jersey": 10 + i, "active": True
+        })
+        player_ids.append(p_res.json()["id"])
+
+    previous_game = Game(
+        team_id=team["id"],
+        date=date(2026, 6, 1),
+        mode="compete",
+        game_type="season",
+    )
+    session.add(previous_game)
+    session.commit()
+    session.refresh(previous_game)
+    session.add(PitchingAppearance(
+        game_id=previous_game.id,
+        player_id=player_ids[0],
+        inning_entered=1,
+        inning_exited=2,
+        ip_outs=3,
+    ))
+    session.commit()
+
+    current_res = await client.post("/games/", json={
+        "date": "2026-06-01", "mode": "compete", "game_type": "season"
+    })
+    current_game = current_res.json()
+
+    await client.put(f"/games/{current_game['id']}/lineup", json=[
+        {"inning": 1, "player_id": player_ids[0], "position": 1, "locked": True},
+        {"inning": 2, "player_id": player_ids[0], "position": 1, "locked": True},
+    ])
+    solve_res = await client.post(f"/games/{current_game['id']}/solve")
+
+    assert solve_res.status_code == 400
+    assert "remaining daily limit of 1" in solve_res.json()["detail"]
+
+
+@pytest.mark.asyncio
+async def test_solve_does_not_add_pitching_beyond_same_day_remainder(client: AsyncClient, session):
+    team_res = await client.post("/teams/", json={
+        "name": "Daily Remainder Team", "season": "2026", "innings_per_game": 5,
+        "max_pitcher_innings_per_game": 2, "max_pitcher_innings_per_7_days": 4,
+        "late_inning_weight": 1.5, "language": "en", "pitch_count_rules_json": "{}"
+    })
+    team = team_res.json()
+
+    player_ids = []
+    for i in range(10):
+        p_res = await client.post("/players/", json={
+            "first_name": f"P{i}", "last_name": "Player", "jersey": 10 + i, "active": True
+        })
+        player_ids.append(p_res.json()["id"])
+
+    for position in range(1, 10):
+        session.add(PositionScore(
+            player_id=player_ids[0],
+            position=position,
+            score=10 if position == 1 else 0,
+        ))
+    session.commit()
+
+    previous_game = Game(
+        team_id=team["id"],
+        date=date(2026, 6, 1),
+        mode="compete",
+        game_type="season",
+    )
+    session.add(previous_game)
+    session.commit()
+    session.refresh(previous_game)
+    session.add(PitchingAppearance(
+        game_id=previous_game.id,
+        player_id=player_ids[0],
+        inning_entered=1,
+        inning_exited=2,
+        ip_outs=3,
+    ))
+    session.commit()
+
+    current_res = await client.post("/games/", json={
+        "date": "2026-06-01", "mode": "compete", "game_type": "season"
+    })
+    current_game = current_res.json()
+
+    session.add(Lineup(
+        game_id=current_game["id"],
+        inning=1,
+        player_id=player_ids[0],
+        position=1,
+        locked=True,
+    ))
+    session.commit()
+
+    solve_res = await client.post(f"/games/{current_game['id']}/solve")
+    assert solve_res.status_code == 200
+
+    lineup_res = await client.get(f"/games/{current_game['id']}/lineup")
+    lineup = lineup_res.json()
+    p0_pitching = [
+        cell for cell in lineup
+        if cell["player_id"] == player_ids[0] and cell["position"] == 1
+    ]
+    assert len(p0_pitching) == 1
 
 
 @pytest.mark.asyncio
