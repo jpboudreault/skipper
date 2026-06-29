@@ -21,6 +21,7 @@ class Team(SQLModel, table=True):
     max_pitcher_innings_per_game: int
     max_pitcher_innings_per_7_days: int = Field(default=4)
     late_inning_weight: float = Field(default=1.5)
+    compete_score_tolerance_pct: float = Field(default=15.0)
     language: str = Field(default='fr')
     pitch_count_rules_json: str
     division: Optional[str] = None
@@ -93,7 +94,7 @@ class Game(SQLModel, table=True):
     innings_played: Optional[int] = None
     result_runs_for: Optional[int] = None
     result_runs_against: Optional[int] = None
-    mode: str = Field(default="compete")  # 'compete' or 'develop'
+    mode: str = Field(default="compete")  # 'compete', 'develop', or 'optimal'
     game_type: str = Field(default="season")  # 'season', 'postseason', or 'tournament'
     league: Optional[str] = None
     notes: Optional[str] = None

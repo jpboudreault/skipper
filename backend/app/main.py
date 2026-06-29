@@ -192,6 +192,11 @@ def run_migrations():
             ("player", "updated_at", "ALTER TABLE player ADD COLUMN updated_at TIMESTAMP"),
             ("game", "created_at", "ALTER TABLE game ADD COLUMN created_at TIMESTAMP"),
             ("game", "updated_at", "ALTER TABLE game ADD COLUMN updated_at TIMESTAMP"),
+            (
+                "team",
+                "compete_score_tolerance_pct",
+                "ALTER TABLE team ADD COLUMN compete_score_tolerance_pct REAL NOT NULL DEFAULT 15.0",
+            ),
         ]
         for table, col, sql in migrations:
             try:
@@ -204,6 +209,30 @@ def run_migrations():
                     conn.commit()
             except Exception as e:
                 logger.warning("[migration] Skipped %s.%s: %s", table, col, e)
+
+        # One-time: legacy win-focused "compete" games become "optimal"
+        try:
+            conn.execute(
+                text(
+                    "CREATE TABLE IF NOT EXISTS _schema_migration "
+                    "(name TEXT PRIMARY KEY, applied_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP)"
+                )
+            )
+            conn.commit()
+            row = conn.execute(
+                text("SELECT 1 FROM _schema_migration WHERE name = 'game_mode_compete_to_optimal'")
+            ).fetchone()
+            if row is None:
+                logger.info("[migration] Renaming legacy game mode compete -> optimal")
+                conn.execute(text("UPDATE game SET mode = 'optimal' WHERE mode = 'compete'"))
+                conn.execute(
+                    text(
+                        "INSERT INTO _schema_migration (name) VALUES ('game_mode_compete_to_optimal')"
+                    )
+                )
+                conn.commit()
+        except Exception as e:
+            logger.warning("[migration] Skipped game_mode_compete_to_optimal: %s", e)
 
 @app.on_event("startup")
 def on_startup():

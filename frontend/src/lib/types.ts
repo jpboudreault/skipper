@@ -34,7 +34,7 @@ export interface Player {
 	coach_type?: string | null;
 }
 
-export type GameMode = 'compete' | 'develop';
+export type GameMode = 'compete' | 'develop' | 'optimal';
 export type GameType = 'season' | 'postseason' | 'tournament';
 
 export interface Game {

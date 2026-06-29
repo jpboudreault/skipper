@@ -6,7 +6,7 @@ from app.models import (
     Game, GameCreate, Availability, BattingLine, PitchingAppearance,
     Lineup, Player, Team
 )
-from app.optimizer import solve_lineup, OptimizerConfig, LockedCell
+from app.optimizer import solve_lineup_options, OptimizerConfig, LockedCell, GAME_MODES
 from app.rest_calculator import get_pitcher_eligibility
 from app.lineup_service import (
     get_available_players,
@@ -29,6 +29,15 @@ router = APIRouter(prefix="/games", tags=["games"])
 
 MIN_LINEUP_INNINGS = 1
 MAX_LINEUP_INNINGS = 12
+
+
+def validate_game_mode(mode: str) -> None:
+    if mode not in GAME_MODES:
+        raise_api_error(400, "invalid_game_mode", mode=mode)
+
+
+class ApplySolveBody(BaseModel):
+    assignments: List[dict]
 
 # --- Helper Dependency ---
 
@@ -92,6 +101,7 @@ def apply_external_game_fields(updates: dict, team: Team) -> None:
 
 @router.post("/", response_model=Game)
 def create_game(game_data: GameCreate, session: Session = Depends(get_session), active_team: Team = Depends(get_active_team)):
+    validate_game_mode(game_data.mode)
     game_dict = game_data.model_dump()
     apply_external_game_fields(game_dict, active_team)
     game_dict["team_id"] = active_team.id
@@ -153,6 +163,8 @@ def update_game(game_data: GameCreate, game: Game = Depends(get_active_game), se
 
     updates = game_data.model_dump(exclude_unset=True)
     apply_external_game_fields(updates, team)
+    if "mode" in updates:
+        validate_game_mode(updates["mode"])
     if "innings_played" in updates and updates["innings_played"] is not None:
         innings = updates["innings_played"]
         if innings < MIN_LINEUP_INNINGS or innings > MAX_LINEUP_INNINGS:
@@ -484,9 +496,9 @@ def restore_lineup_snapshot(
 def solve_game_lineup(game: Game = Depends(get_active_game), session: Session = Depends(get_session)):
     """
     Run the CP-SAT optimizer for this game.
-    Uses locked lineup cells as pre-assignments, respects availability,
-    and uses position scores + game mode (compete/develop).
+    Optimal mode auto-applies one lineup; compete/develop return up to 5 options.
     """
+    validate_game_mode(game.mode)
     team = session.get(Team, game.team_id)
     if not team:
         raise_api_error(404, "team_not_found")
@@ -504,7 +516,6 @@ def solve_game_lineup(game: Game = Depends(get_active_game), session: Session = 
         available_players, avails, scores_by_player, forbidden_by_player, game, team, session
     )
 
-    # Drop lineup cells for players who are no longer available, then build locked cells.
     available_ids = {p.id for p in available_players}
     existing_lineup = prune_unavailable_lineup_cells(game, available_ids, session)
     locked = [
@@ -512,11 +523,11 @@ def solve_game_lineup(game: Game = Depends(get_active_game), session: Session = 
         for lc in existing_lineup if lc.locked
     ]
 
-    # Pre-solver validations for coach lock constraints (H1, H2, H5/H6, H9)
     validate_locked_cells(
         existing_lineup, available_players, forbidden_by_player, game, team, session
     )
 
+    tolerance = getattr(team, "compete_score_tolerance_pct", 15.0)
     config = OptimizerConfig(
         innings=innings,
         max_pitcher_innings_per_game=team.max_pitcher_innings_per_game,
@@ -525,22 +536,82 @@ def solve_game_lineup(game: Game = Depends(get_active_game), session: Session = 
         mode=game.mode,
         strict_bench_fairness=not is_aa_or_aaa(team),
         h8_is_soft=True,
+        compete_score_tolerance_pct=tolerance,
     )
 
-    result = solve_lineup(player_infos, config, locked)
+    result = solve_lineup_options(player_infos, config, locked)
 
-    if result.status == "infeasible":
+    if not result.options:
         raise_api_error(400, "no_feasible_lineup")
 
-    # Preserve the pre-solve grid (including manual edits) so coaches can undo a solve.
-    snapshot_lineup(game, session, label="before_solve")
-    persist_solver_result(game, existing_lineup, result, session)
+    options_payload = [
+        {
+            "option_id": opt.option_id,
+            "status": opt.status,
+            "quality_score": opt.quality_score,
+            "dev_score": opt.dev_score,
+            "objective_value": opt.objective_value,
+            "assignments": opt.assignments,
+        }
+        for opt in result.options
+    ]
+
+    applied = game.mode == "optimal"
+    if applied:
+        snapshot_lineup(game, session, label="before_solve")
+        from app.optimizer import SolverResult
+
+        first = result.options[0]
+        persist_solver_result(
+            game,
+            existing_lineup,
+            SolverResult(first.assignments, first.objective_value, first.status),
+            session,
+        )
 
     return {
-        "status": result.status,
-        "objective_value": result.objective_value,
-        "assignments": result.assignments,
+        "applied": applied,
+        "mode": game.mode,
+        "best_quality_score": result.best_quality_score,
+        "tolerance_pct": result.tolerance_pct,
+        "options": options_payload,
+        # Backward-compatible fields when optimal auto-applied
+        "status": result.options[0].status if applied else None,
+        "objective_value": result.options[0].objective_value if applied else None,
+        "assignments": result.options[0].assignments if applied else None,
     }
+
+
+@router.post("/{game_id}/solve/apply")
+def apply_solve_option(
+    body: ApplySolveBody,
+    game: Game = Depends(get_active_game),
+    session: Session = Depends(get_session),
+):
+    """Persist a lineup option chosen from a compete/develop solve."""
+    if game.mode == "optimal":
+        raise_api_error(400, "solve_apply_not_needed")
+    if not body.assignments:
+        raise_api_error(400, "empty_lineup_assignments")
+
+    team = session.get(Team, game.team_id)
+    if not team:
+        raise_api_error(404, "team_not_found")
+
+    available_players, _ = get_available_players(game, session)
+    available_ids = {p.id for p in available_players}
+    existing_lineup = prune_unavailable_lineup_cells(game, available_ids, session)
+
+    from app.optimizer import SolverResult
+
+    snapshot_lineup(game, session, label="before_solve")
+    persist_solver_result(
+        game,
+        existing_lineup,
+        SolverResult(body.assignments, 0, "applied"),
+        session,
+    )
+    return {"ok": True}
 
 # --- Pitcher Status ---
 

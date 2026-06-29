@@ -148,11 +148,24 @@
 					>
 						<option value="compete">{$t('games_mode_compete')}</option>
 						<option value="develop">{$t('games_mode_develop')}</option>
+						<option value="optimal">{$t('games_mode_optimal')}</option>
 					</select>
 				{:else}
 					<div class="ml-1">
-						<span class="badge {game.mode === 'compete' ? 'badge-info' : 'badge-success'}">
-							{game.mode === 'compete' ? $t('games_mode_compete') : $t('games_mode_develop')}
+						<span
+							class="badge {game.mode === 'optimal'
+								? 'badge-warning'
+								: game.mode === 'compete'
+									? 'badge-info'
+									: 'badge-success'}"
+						>
+							{$t(
+								game.mode === 'optimal'
+									? 'games_mode_optimal'
+									: game.mode === 'compete'
+										? 'games_mode_compete'
+										: 'games_mode_develop'
+							)}
 						</span>
 					</div>
 				{/if}

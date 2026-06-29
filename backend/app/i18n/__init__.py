@@ -75,6 +75,9 @@ MESSAGES: dict[str, dict[str, str]] = {
         "schedule_sync_not_configured": "Schedule sync is not configured for this team.",
         "lineup_snapshot_not_found": "Lineup snapshot not found for this game.",
         "lineup_empty": "There is no lineup to save yet.",
+        "invalid_game_mode": "Invalid optimizer mode '{mode}'. Use compete, develop, or optimal.",
+        "solve_apply_not_needed": "Optimal mode applies the lineup automatically; no apply step needed.",
+        "empty_lineup_assignments": "No lineup assignments provided.",
     },
     "fr": {
         "internal_server_error": "Erreur interne du serveur",
@@ -120,6 +123,9 @@ MESSAGES: dict[str, dict[str, str]] = {
         "schedule_sync_not_configured": "La synchronisation de l'horaire n'est pas configurée pour cette équipe.",
         "lineup_snapshot_not_found": "Instantané d'alignement introuvable pour ce match.",
         "lineup_empty": "Il n'y a pas encore d'alignement à enregistrer.",
+        "invalid_game_mode": "Mode d'optimisation invalide « {mode} ». Utilisez compete, develop ou optimal.",
+        "solve_apply_not_needed": "Le mode optimal applique l'alignement automatiquement.",
+        "empty_lineup_assignments": "Aucune affectation d'alignement fournie.",
     },
 }
 

@@ -327,9 +327,11 @@ async def test_solve_filtering_unavailable_and_coaches(client: AsyncClient, sess
         {"inning": 1, "player_id": player_ids[0], "position": 0, "locked": True}
     ])
 
-    # 7. Solve lineup, should succeed
+    # 7. Solve lineup (optimal auto-applies; compete/develop require apply step)
+    await client.put(f"/games/{game['id']}", json={"date": "2026-06-01", "mode": "optimal"})
     solve_res = await client.post(f"/games/{game['id']}/solve")
     assert solve_res.status_code == 200
+    assert solve_res.json()["applied"] is True
 
     # 8. Fetch the lineup and verify absent and coach players have no assignments
     get_lineup_res = await client.get(f"/games/{game['id']}/lineup")

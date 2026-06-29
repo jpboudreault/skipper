@@ -17,6 +17,10 @@
 	let solving = $state(false);
 	let solveStatus = $state('');
 	let solveIsError = $state(false);
+	let solveOptions = $state<any[]>([]);
+	let showSolveOptions = $state(false);
+	let solveTolerancePct = $state<number | null>(null);
+	let applyingOption = $state(false);
 	let savingOrder = $state(false);
 	let autoSaving = $state(false);
 	let injuryMode = $state(false);
@@ -34,6 +38,40 @@
 	// Drag state
 	let dragIndex: number | null = $state(null);
 	let dragOverIndex: number | null = $state(null);
+
+	const MODE_LABELS: Record<string, string> = {
+		compete: 'lineup_compete_mode',
+		develop: 'lineup_develop_mode',
+		optimal: 'lineup_optimal_mode'
+	};
+
+	const MODE_DESCS: Record<string, string> = {
+		compete: 'lineup_compete_desc',
+		develop: 'lineup_develop_desc',
+		optimal: 'lineup_optimal_desc'
+	};
+
+	function modeBadgeClass(mode: string): string {
+		if (mode === 'optimal') return 'badge-warning';
+		if (mode === 'compete') return 'badge-info';
+		return 'badge-success';
+	}
+
+	function optionQualityForAssignments(assignments: any[]): number {
+		if (!game || !positionScores.length) return 0;
+		const lateStart = numInnings - Math.ceil(numInnings / 3);
+		let total = 0;
+		for (const cell of assignments) {
+			if (cell.position === 0) continue;
+			const ps = positionScores.find(
+				(s) => s.player_id === cell.player_id && s.position === cell.position
+			);
+			if (!ps) continue;
+			const weight = cell.inning - 1 >= lateStart ? (team?.late_inning_weight ?? 1.5) : 1;
+			total += ps.score * weight;
+		}
+		return Math.round(total * 10) / 10;
+	}
 
 	const POSITIONS: Record<number, string> = {
 		0: 'X',
@@ -386,6 +424,8 @@
 		solving = true;
 		solveStatus = '';
 		solveIsError = false;
+		showSolveOptions = false;
+		solveOptions = [];
 		await saveLineup();
 		try {
 			const res = await apiFetch(`/games/${$page.params.id}/solve`, {
@@ -394,7 +434,43 @@
 			});
 			if (res.ok) {
 				const result = await res.json();
-				solveStatus = translate('lineup_solved', { status: result.status });
+				if (result.applied) {
+					const status = result.options?.[0]?.status ?? result.status ?? 'feasible';
+					solveStatus = translate('lineup_solved', { status });
+					const lRes = await apiFetch(`/games/${$page.params.id}/lineup`);
+					if (lRes.ok) lineup = await lRes.json();
+					await loadSnapshots();
+				} else {
+					solveOptions = result.options ?? [];
+					solveTolerancePct = result.tolerance_pct ?? null;
+					showSolveOptions = true;
+				}
+			} else {
+				const err = await res.json();
+				solveIsError = true;
+				solveStatus = translate('lineup_error_prefix', { message: err.detail });
+			}
+		} catch (e: any) {
+			solveIsError = true;
+			solveStatus = translate('lineup_error_prefix', { message: e.message });
+		} finally {
+			solving = false;
+		}
+	}
+
+	async function applySolveOption(option: any) {
+		applyingOption = true;
+		try {
+			const res = await apiFetch(`/games/${$page.params.id}/solve/apply`, {
+				method: 'POST',
+				headers: { 'Content-Type': 'application/json' },
+				body: JSON.stringify({ assignments: option.assignments })
+			});
+			if (res.ok) {
+				showSolveOptions = false;
+				solveOptions = [];
+				solveStatus = translate('lineup_solved', { status: option.status });
+				solveIsError = false;
 				const lRes = await apiFetch(`/games/${$page.params.id}/lineup`);
 				if (lRes.ok) lineup = await lRes.json();
 				await loadSnapshots();
@@ -407,8 +483,13 @@
 			solveIsError = true;
 			solveStatus = translate('lineup_error_prefix', { message: e.message });
 		} finally {
-			solving = false;
+			applyingOption = false;
 		}
+	}
+
+	function closeSolveOptions() {
+		showSolveOptions = false;
+		solveOptions = [];
 	}
 
 	function getPositionCount(inning: number, position: number): number {
@@ -611,16 +692,80 @@
 			</div>
 		{/if}
 
+		{#if showSolveOptions && solveOptions.length > 0}
+			<div class="modal modal-open">
+				<div class="modal-box max-w-5xl">
+					<h3 class="text-lg font-bold">{$t('lineup_solve_options_title')}</h3>
+					<p class="text-base-content/70 mt-1 text-sm">
+						{$t('lineup_solve_options_count', { count: solveOptions.length })}
+					</p>
+					<div class="mt-4 grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
+						{#each solveOptions as option, idx}
+							<div class="card bg-base-200 border-base-300 border shadow-sm">
+								<div class="card-body p-4">
+									<div class="flex items-center justify-between">
+										<span class="font-semibold">#{option.option_id}</span>
+										{#if idx === 0 && game?.mode === 'compete'}
+											<span class="badge badge-sm badge-primary"
+												>{$t('lineup_solve_option_best')}</span
+											>
+										{:else if idx > 0 && game?.mode === 'compete' && solveTolerancePct}
+											<span class="badge badge-sm badge-ghost"
+												>{$t('lineup_solve_option_within_tolerance', {
+													pct: solveTolerancePct
+												})}</span
+											>
+										{/if}
+									</div>
+									{#if game?.mode === 'develop'}
+										<p class="text-sm">
+											{$t('lineup_solve_option_dev', {
+												score: Math.round(option.dev_score)
+											})}
+										</p>
+									{:else}
+										<p class="text-sm">
+											{$t('lineup_solve_option_quality', {
+												score: option.quality_score ?? optionQualityForAssignments(option.assignments)
+											})}
+										</p>
+									{/if}
+									<p class="text-base-content/60 text-xs capitalize">{option.status}</p>
+									<button
+										class="btn btn-primary btn-sm mt-2"
+										disabled={applyingOption}
+										onclick={() => applySolveOption(option)}
+									>
+										{$t('lineup_solve_apply')}
+									</button>
+								</div>
+							</div>
+						{/each}
+					</div>
+					<div class="modal-action">
+						<button class="btn btn-ghost" onclick={closeSolveOptions} disabled={applyingOption}>
+							{$t('lineup_solve_cancel')}
+						</button>
+					</div>
+				</div>
+				<button
+					class="modal-backdrop"
+					aria-label={$t('lineup_solve_cancel')}
+					onclick={closeSolveOptions}
+				></button>
+			</div>
+		{/if}
+
 		{#if game}
 			<div
 				class="alert bg-base-100 border-base-300 flex items-center justify-between rounded-lg border py-3 shadow-sm"
 			>
 				<div class="flex items-center gap-2">
-					<span class="badge badge-md {game.mode === 'compete' ? 'badge-info' : 'badge-success'}">
-						{game.mode === 'compete' ? $t('lineup_compete_mode') : $t('lineup_develop_mode')}
+					<span class="badge badge-md {modeBadgeClass(game.mode)}">
+						{$t(MODE_LABELS[game.mode] ?? game.mode)}
 					</span>
 					<span class="text-base-content/70 text-sm">
-						{game.mode === 'compete' ? $t('lineup_compete_desc') : $t('lineup_develop_desc')}
+						{$t(MODE_DESCS[game.mode] ?? game.mode)}
 					</span>
 				</div>
 			</div>

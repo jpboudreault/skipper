@@ -43,7 +43,8 @@
 
 	const modeKeys: Record<string, string> = {
 		compete: 'games_mode_compete',
-		develop: 'games_mode_develop'
+		develop: 'games_mode_develop',
+		optimal: 'games_mode_optimal'
 	};
 
 	const dateFormatOptions: Intl.DateTimeFormatOptions = {
@@ -392,6 +393,7 @@
 						>
 							<option value="compete">{$t('games_mode_compete_full')}</option>
 							<option value="develop">{$t('games_mode_develop_full')}</option>
+							<option value="optimal">{$t('games_mode_optimal_full')}</option>
 						</select>
 					</div>
 					<div class="form-control">
@@ -501,9 +503,11 @@
 									</td>
 									<td>
 										<span
-											class="badge badge-sm {game.mode === 'compete'
-												? 'badge-info'
-												: 'badge-success'} mr-1"
+											class="badge badge-sm {game.mode === 'optimal'
+												? 'badge-warning'
+												: game.mode === 'compete'
+													? 'badge-info'
+													: 'badge-success'} mr-1"
 										>
 											{$t(modeKeys[game.mode] ?? game.mode)}
 										</span>

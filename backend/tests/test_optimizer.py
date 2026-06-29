@@ -1,7 +1,7 @@
 """
 Tests for the lineup optimizer (CP-SAT solver).
 """
-from app.optimizer import solve_lineup, PlayerInfo, OptimizerConfig, LockedCell
+from app.optimizer import solve_lineup, solve_lineup_options, PlayerInfo, OptimizerConfig, LockedCell
 
 
 def make_players(count: int) -> list:
@@ -370,8 +370,8 @@ def test_strict_bench_fairness_blocks_consecutive_bench():
     assert result.status == "infeasible"
 
 
-def test_soft_early_infield_preference_compete():
-    """Compete mode prefers at least one infield inning in first 4 innings."""
+def test_hard_early_infield_compete():
+    """Compete mode requires at least one infield inning in the first 4."""
     players = make_players(9)
     config = OptimizerConfig(
         innings=5,
@@ -381,7 +381,6 @@ def test_soft_early_infield_preference_compete():
         mode="compete",
     )
 
-    # Case A: force player 1 to outfield-only in first 4 innings (violation).
     locks_violation = [
         LockedCell(player_id=1, inning=1, position=7),
         LockedCell(player_id=1, inning=2, position=7),
@@ -389,9 +388,8 @@ def test_soft_early_infield_preference_compete():
         LockedCell(player_id=1, inning=4, position=7),
     ]
     result_violation = solve_lineup(players, config, locks_violation)
-    assert result_violation.status in ("optimal", "feasible")
+    assert result_violation.status == "infeasible"
 
-    # Case B: same shape, but include one infield inning in the first 4.
     locks_satisfied = [
         LockedCell(player_id=1, inning=1, position=6),
         LockedCell(player_id=1, inning=2, position=7),
@@ -401,11 +399,9 @@ def test_soft_early_infield_preference_compete():
     result_satisfied = solve_lineup(players, config, locks_satisfied)
     assert result_satisfied.status in ("optimal", "feasible")
 
-    assert result_satisfied.objective_value > result_violation.objective_value
 
-
-def test_soft_early_infield_preference_develop():
-    """Develop mode also prefers at least one infield inning in first 4 innings."""
+def test_hard_early_infield_develop():
+    """Develop mode also hard-requires early infield."""
     players = make_players(9)
     config = OptimizerConfig(
         innings=5,
@@ -422,17 +418,73 @@ def test_soft_early_infield_preference_develop():
         LockedCell(player_id=1, inning=4, position=7),
     ]
     result_violation = solve_lineup(players, config, locks_violation)
-    assert result_violation.status in ("optimal", "feasible")
+    assert result_violation.status == "infeasible"
 
-    locks_satisfied = [
-        LockedCell(player_id=1, inning=1, position=6),
+
+def test_optimal_allows_outfield_only_early():
+    """Optimal mode does not require early infield."""
+    players = make_players(9)
+    config = OptimizerConfig(
+        innings=5,
+        max_pitcher_innings_per_game=3,
+        max_pitcher_innings_per_7_days=4,
+        late_inning_weight=1.5,
+        mode="optimal",
+    )
+
+    locks = [
+        LockedCell(player_id=1, inning=1, position=7),
         LockedCell(player_id=1, inning=2, position=7),
         LockedCell(player_id=1, inning=3, position=7),
         LockedCell(player_id=1, inning=4, position=7),
     ]
-    result_satisfied = solve_lineup(players, config, locks_satisfied)
-    assert result_satisfied.status in ("optimal", "feasible")
+    result = solve_lineup(players, config, locks)
+    assert result.status in ("optimal", "feasible")
 
-    assert result_satisfied.objective_value > result_violation.objective_value
+
+def test_compete_returns_multiple_options():
+    """Compete mode returns up to 5 distinct lineup options."""
+    players = make_players(10)
+    config = OptimizerConfig(
+        innings=5,
+        max_pitcher_innings_per_game=3,
+        max_pitcher_innings_per_7_days=4,
+        late_inning_weight=1.5,
+        mode="compete",
+        compete_score_tolerance_pct=15.0,
+    )
+    multi = solve_lineup_options(players, config)
+    assert len(multi.options) >= 1
+    assert len(multi.options) <= 5
+    if len(multi.options) > 1:
+        keys = [
+            tuple(sorted((a["inning"], a["player_id"], a["position"]) for a in o.assignments))
+            for o in multi.options
+        ]
+        assert len(keys) == len(set(keys))
+        best = multi.options[0].quality_score
+        floor = best * 0.85
+        for opt in multi.options:
+            assert opt.quality_score >= floor - 0.01
+
+
+def test_develop_returns_diverse_options():
+    """Develop mode returns distinct lineup options when possible."""
+    players = make_players(10)
+    config = OptimizerConfig(
+        innings=5,
+        max_pitcher_innings_per_game=3,
+        max_pitcher_innings_per_7_days=4,
+        late_inning_weight=1.5,
+        mode="develop",
+    )
+    multi = solve_lineup_options(players, config)
+    assert len(multi.options) >= 1
+    if len(multi.options) > 1:
+        keys = [
+            tuple(sorted((a["inning"], a["player_id"], a["position"]) for a in o.assignments))
+            for o in multi.options
+        ]
+        assert len(keys) == len(set(keys))
 
 
