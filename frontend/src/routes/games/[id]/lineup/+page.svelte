@@ -19,6 +19,7 @@
 	let solveIsError = $state(false);
 	let solveOptions = $state<any[]>([]);
 	let showSolveOptions = $state(false);
+	let selectedSolveOptionIdx = $state(0);
 	let solveTolerancePct = $state<number | null>(null);
 	let applyingOption = $state(false);
 	let savingOrder = $state(false);
@@ -71,6 +72,37 @@
 			total += ps.score * weight;
 		}
 		return Math.round(total * 10) / 10;
+	}
+
+	function getOptionPosition(assignments: any[], playerId: number, inning: number): number | null {
+		const cell = assignments.find((a) => a.player_id === playerId && a.inning === inning);
+		return cell?.position ?? null;
+	}
+
+	function getOptionBenchCount(assignments: any[], playerId: number): number {
+		return Array.from({ length: numInnings }, (_, i) =>
+			getOptionPosition(assignments, playerId, i + 1)
+		).filter((p) => p === 0).length;
+	}
+
+	function getOptionInningPoints(assignments: any[], inning: number): number {
+		const lateStart = numInnings - Math.ceil(numInnings / 3);
+		let total = 0;
+		for (const cell of assignments) {
+			if (cell.inning !== inning || cell.position <= 0) continue;
+			if (!availablePlayerIds.has(cell.player_id)) continue;
+			const ps = positionScores.find(
+				(s) => s.player_id === cell.player_id && s.position === cell.position
+			);
+			if (!ps) continue;
+			const weight = cell.inning - 1 >= lateStart ? (team?.late_inning_weight ?? 1.5) : 1;
+			total += ps.score * weight;
+		}
+		return Math.round(total * 10) / 10;
+	}
+
+	function selectSolveOption(idx: number) {
+		selectedSolveOptionIdx = idx;
 	}
 
 	const POSITIONS: Record<number, string> = {
@@ -443,6 +475,7 @@
 				} else {
 					solveOptions = result.options ?? [];
 					solveTolerancePct = result.tolerance_pct ?? null;
+					selectedSolveOptionIdx = 0;
 					showSolveOptions = true;
 				}
 			} else {
@@ -490,6 +523,7 @@
 	function closeSolveOptions() {
 		showSolveOptions = false;
 		solveOptions = [];
+		selectedSolveOptionIdx = 0;
 	}
 
 	function getPositionCount(inning: number, position: number): number {
@@ -693,58 +727,171 @@
 		{/if}
 
 		{#if showSolveOptions && solveOptions.length > 0}
+			{@const activeOption = solveOptions[selectedSolveOptionIdx]}
 			<div class="modal modal-open">
-				<div class="modal-box max-w-5xl">
+				<div class="modal-box flex max-h-[90vh] max-w-6xl flex-col">
 					<h3 class="text-lg font-bold">{$t('lineup_solve_options_title')}</h3>
 					<p class="text-base-content/70 mt-1 text-sm">
 						{$t('lineup_solve_options_count', { count: solveOptions.length })}
 					</p>
-					<div class="mt-4 grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
+
+					<div
+						class="tabs tabs-boxed bg-base-200 border-base-300 mt-4 flex-wrap gap-1 border p-1 shadow-sm"
+						role="tablist"
+					>
 						{#each solveOptions as option, idx}
-							<div class="card bg-base-200 border-base-300 border shadow-sm">
-								<div class="card-body p-4">
-									<div class="flex items-center justify-between">
-										<span class="font-semibold">#{option.option_id}</span>
-										{#if idx === 0 && game?.mode === 'compete'}
-											<span class="badge badge-sm badge-primary"
-												>{$t('lineup_solve_option_best')}</span
-											>
-										{:else if idx > 0 && game?.mode === 'compete' && solveTolerancePct}
-											<span class="badge badge-sm badge-ghost"
-												>{$t('lineup_solve_option_within_tolerance', {
-													pct: solveTolerancePct
-												})}</span
-											>
-										{/if}
-									</div>
-									{#if game?.mode === 'develop'}
-										<p class="text-sm">
-											{$t('lineup_solve_option_dev', {
-												score: Math.round(option.dev_score)
-											})}
-										</p>
-									{:else}
-										<p class="text-sm">
-											{$t('lineup_solve_option_quality', {
-												score: option.quality_score ?? optionQualityForAssignments(option.assignments)
-											})}
-										</p>
-									{/if}
-									<p class="text-base-content/60 text-xs capitalize">{option.status}</p>
-									<button
-										class="btn btn-primary btn-sm mt-2"
-										disabled={applyingOption}
-										onclick={() => applySolveOption(option)}
+							<button
+								type="button"
+								role="tab"
+								aria-selected={selectedSolveOptionIdx === idx}
+								class="tab tab-sm {selectedSolveOptionIdx === idx
+									? 'tab-active text-primary font-bold'
+									: 'text-base-content/60'}"
+								onclick={() => selectSolveOption(idx)}
+							>
+								{$t('lineup_solve_option_tab', { number: option.option_id })}
+								{#if game?.mode === 'develop'}
+									<span class="text-base-content/60 ml-1 text-xs"
+										>({Math.round(option.dev_score)})</span
 									>
-										{$t('lineup_solve_apply')}
-									</button>
-								</div>
-							</div>
+								{:else}
+									<span class="text-base-content/60 ml-1 text-xs"
+										>({option.quality_score ??
+											optionQualityForAssignments(option.assignments)})</span
+									>
+								{/if}
+							</button>
 						{/each}
 					</div>
-					<div class="modal-action">
+
+					{#if activeOption}
+						<div class="mt-3 flex flex-wrap items-center gap-2">
+							{#if selectedSolveOptionIdx === 0 && game?.mode === 'compete'}
+								<span class="badge badge-sm badge-primary">{$t('lineup_solve_option_best')}</span>
+							{:else if selectedSolveOptionIdx > 0 && game?.mode === 'compete' && solveTolerancePct}
+								<span class="badge badge-sm badge-ghost"
+									>{$t('lineup_solve_option_within_tolerance', {
+										pct: solveTolerancePct
+									})}</span
+								>
+							{/if}
+							{#if game?.mode === 'develop'}
+								<span class="text-sm">
+									{$t('lineup_solve_option_dev', {
+										score: Math.round(activeOption.dev_score)
+									})}
+								</span>
+							{:else}
+								<span class="text-sm">
+									{$t('lineup_solve_option_quality', {
+										score:
+											activeOption.quality_score ??
+											optionQualityForAssignments(activeOption.assignments)
+									})}
+								</span>
+							{/if}
+							<span class="text-base-content/60 text-xs capitalize">{activeOption.status}</span>
+						</div>
+
+						<div class="border-base-300 mt-4 min-h-0 flex-1 overflow-auto rounded-lg border">
+							<table class="table-sm table-pin-rows table-pin-cols table w-full">
+								<thead class="bg-base-200">
+									<tr>
+										<th
+											class="bg-base-300 text-base-content sticky left-0 z-20 w-48 font-bold"
+										>
+											{$t('lineup_order_player')}
+										</th>
+										{#each Array(numInnings) as _, inn}
+											<th class="bg-base-200 text-base-content w-14 text-center font-bold">
+												{$t('lineup_inning', { number: inn + 1 })}
+											</th>
+										{/each}
+										<th class="bg-base-200 text-base-content w-12 text-center font-bold"
+											>{$t('lineup_bench')}</th
+										>
+									</tr>
+								</thead>
+								<tbody>
+									{#each battingOrder as playerId}
+										{@const player = getPlayer(playerId)}
+										{#if player}
+											{@const benchCount = getOptionBenchCount(
+												activeOption.assignments,
+												player.id
+											)}
+											<tr class="hover:bg-base-200/50">
+												<td
+													class="bg-base-100 text-base-content border-base-300 sticky left-0 z-10 border-r font-medium"
+												>
+													<div class="flex items-center gap-2">
+														<span class="text-base-content/50 w-6 text-right text-xs"
+															>#{player.jersey}</span
+														>
+														<span class="truncate">{player.first_name} {player.last_name}</span>
+													</div>
+												</td>
+												{#each Array(numInnings) as _, inn}
+													{@const pos = getOptionPosition(
+														activeOption.assignments,
+														player.id,
+														inn + 1
+													)}
+													<td
+														class="border-base-200 border-r text-center last:border-r-0 {pos === 0
+															? 'text-base-content/40'
+															: pos === 1
+																? 'text-warning font-bold'
+																: 'font-semibold'}"
+													>
+														{pos !== null ? POSITIONS[pos] : '—'}
+													</td>
+												{/each}
+												<td
+													class="text-center font-bold {benchCount > 1
+														? 'text-warning'
+														: 'text-base-content/60'}"
+												>
+													{benchCount}
+												</td>
+											</tr>
+										{/if}
+									{/each}
+								</tbody>
+								<tfoot class="bg-base-300 font-bold">
+									<tr>
+										<td
+											class="bg-base-300 text-base-content border-base-300 sticky left-0 border-r py-2 pr-4 text-right text-sm font-bold"
+										>
+											{$t('lineup_total_points')}
+										</td>
+										{#each Array(numInnings) as _, inn}
+											<td
+												class="text-primary border-base-200 border-r text-center text-sm font-bold last:border-r-0"
+											>
+												{getOptionInningPoints(activeOption.assignments, inn + 1)}
+											</td>
+										{/each}
+										<td></td>
+									</tr>
+								</tfoot>
+							</table>
+						</div>
+					{/if}
+
+					<div class="modal-action mt-4 shrink-0">
 						<button class="btn btn-ghost" onclick={closeSolveOptions} disabled={applyingOption}>
 							{$t('lineup_solve_cancel')}
+						</button>
+						<button
+							class="btn btn-primary"
+							disabled={applyingOption || !activeOption}
+							onclick={() => activeOption && applySolveOption(activeOption)}
+						>
+							{#if applyingOption}
+								<span class="loading loading-spinner loading-xs"></span>
+							{/if}
+							{$t('lineup_solve_apply')}
 						</button>
 					</div>
 				</div>

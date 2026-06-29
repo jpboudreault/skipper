@@ -466,3 +466,166 @@ async def test_lineup_inning_count(client: AsyncClient, session):
     assert expand_res.status_code == 200
     assert expand_res.json()["innings_played"] == 7
 
+
+async def _setup_solvable_game(client: AsyncClient, mode: str = "compete"):
+    """Create a team, 10 available players, and a game ready for the optimizer."""
+    team_res = await client.post("/teams/", json={
+        "name": "Solve Team", "season": "2026", "innings_per_game": 5,
+        "max_pitcher_innings_per_game": 3, "max_pitcher_innings_per_7_days": 6,
+        "compete_score_tolerance_pct": 15.0,
+        "pitch_count_rules_json": "{}",
+    })
+    team = team_res.json()
+
+    player_ids = []
+    for i in range(10):
+        p_res = await client.post("/players/", json={
+            "first_name": f"P{i}", "last_name": "Player", "jersey": 10 + i, "active": True,
+        })
+        player_ids.append(p_res.json()["id"])
+
+    game_res = await client.post("/games/", json={
+        "date": "2026-06-01", "mode": mode,
+    })
+    game = game_res.json()
+    return game, player_ids, team
+
+
+def _assert_valid_lineup_option(option: dict, innings: int = 5):
+    assert "option_id" in option
+    assert "status" in option
+    assert "assignments" in option
+    assert len(option["assignments"]) > 0
+    for inn in range(1, innings + 1):
+        inn_cells = [a for a in option["assignments"] if a["inning"] == inn and a["position"] > 0]
+        positions = [a["position"] for a in inn_cells]
+        assert len(inn_cells) == 9
+        assert len(set(positions)) == 9
+
+
+@pytest.mark.asyncio
+async def test_solve_compete_returns_options_without_apply(client: AsyncClient, session):
+    game, _player_ids, _team = await _setup_solvable_game(client, mode="compete")
+
+    lineup_before = await client.get(f"/games/{game['id']}/lineup")
+    assert lineup_before.status_code == 200
+    assert lineup_before.json() == []
+
+    solve_res = await client.post(f"/games/{game['id']}/solve")
+    assert solve_res.status_code == 200
+    data = solve_res.json()
+
+    assert data["applied"] is False
+    assert data["mode"] == "compete"
+    assert data["tolerance_pct"] == 15.0
+    assert data["best_quality_score"] is not None
+    assert 1 <= len(data["options"]) <= 5
+    assert data["status"] is None
+    assert data["assignments"] is None
+
+    for idx, option in enumerate(data["options"], start=1):
+        _assert_valid_lineup_option(option)
+        assert option["quality_score"] is not None
+        assert option["option_id"] == idx
+
+    best = data["options"][0]["quality_score"]
+    floor = best * (1 - data["tolerance_pct"] / 100)
+    for option in data["options"]:
+        assert option["quality_score"] >= floor - 0.01
+
+    lineup_after = await client.get(f"/games/{game['id']}/lineup")
+    assert lineup_after.json() == []
+
+
+@pytest.mark.asyncio
+async def test_solve_develop_returns_options_without_apply(client: AsyncClient, session):
+    game, _player_ids, _team = await _setup_solvable_game(client, mode="develop")
+
+    solve_res = await client.post(f"/games/{game['id']}/solve")
+    assert solve_res.status_code == 200
+    data = solve_res.json()
+
+    assert data["applied"] is False
+    assert data["mode"] == "develop"
+    assert 1 <= len(data["options"]) <= 5
+
+    for option in data["options"]:
+        _assert_valid_lineup_option(option)
+        assert option["dev_score"] is not None
+
+    lineup_after = await client.get(f"/games/{game['id']}/lineup")
+    assert lineup_after.json() == []
+
+
+@pytest.mark.asyncio
+async def test_solve_apply_persists_chosen_lineup(client: AsyncClient, session):
+    game, player_ids, _team = await _setup_solvable_game(client, mode="compete")
+
+    original = [
+        {"inning": 1, "player_id": player_ids[0], "position": 1, "locked": True},
+        {"inning": 1, "player_id": player_ids[1], "position": 2, "locked": True},
+    ]
+    put_res = await client.put(f"/games/{game['id']}/lineup", json=original)
+    assert put_res.status_code == 200
+
+    solve_res = await client.post(f"/games/{game['id']}/solve")
+    assert solve_res.status_code == 200
+    options = solve_res.json()["options"]
+    chosen = options[0]["assignments"]
+
+    lineup_mid = await client.get(f"/games/{game['id']}/lineup")
+    assert len(lineup_mid.json()) == len(original)
+
+    apply_res = await client.post(
+        f"/games/{game['id']}/solve/apply",
+        json={"assignments": chosen},
+    )
+    assert apply_res.status_code == 200
+    assert apply_res.json() == {"ok": True}
+
+    lineup_res = await client.get(f"/games/{game['id']}/lineup")
+    lineup = lineup_res.json()
+    assert len(lineup) == len(chosen)
+
+    chosen_map = {
+        (a["player_id"], a["inning"]): a["position"]
+        for a in chosen
+        if a["player_id"] in player_ids
+    }
+    for cell in lineup:
+        assert chosen_map[(cell["player_id"], cell["inning"])] == cell["position"]
+
+    snapshots_res = await client.get(f"/games/{game['id']}/lineup/snapshots")
+    assert snapshots_res.status_code == 200
+    snapshots = snapshots_res.json()
+    before_solve = next(s for s in snapshots if s["label"] == "before_solve")
+    assert before_solve["cell_count"] == len(original)
+
+
+@pytest.mark.asyncio
+async def test_solve_apply_rejected_for_optimal(client: AsyncClient, session):
+    game, _player_ids, _team = await _setup_solvable_game(client, mode="optimal")
+
+    solve_res = await client.post(f"/games/{game['id']}/solve")
+    assert solve_res.status_code == 200
+    assert solve_res.json()["applied"] is True
+
+    apply_res = await client.post(
+        f"/games/{game['id']}/solve/apply",
+        json={"assignments": solve_res.json()["assignments"]},
+    )
+    assert apply_res.status_code == 400
+    assert "no apply step needed" in apply_res.json()["detail"].lower()
+
+
+@pytest.mark.asyncio
+async def test_solve_apply_rejects_empty_assignments(client: AsyncClient, session):
+    game, _player_ids, _team = await _setup_solvable_game(client, mode="compete")
+
+    apply_res = await client.post(
+        f"/games/{game['id']}/solve/apply",
+        json={"assignments": []},
+    )
+    assert apply_res.status_code == 400
+    assert "no lineup assignments" in apply_res.json()["detail"].lower()
+
