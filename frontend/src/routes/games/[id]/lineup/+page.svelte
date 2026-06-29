@@ -40,6 +40,10 @@
 	let dragIndex: number | null = $state(null);
 	let dragOverIndex: number | null = $state(null);
 
+	// Touch drag state (mobile)
+	let touchGhost: HTMLElement | null = $state(null);
+	let touchCurrentIndex: number | null = $state(null);
+
 	const MODE_LABELS: Record<string, string> = {
 		compete: 'lineup_compete_mode',
 		develop: 'lineup_develop_mode',
@@ -244,6 +248,15 @@
 	}
 
 	// --- Drag and Drop ---
+	function reorderBattingOrder(fromIndex: number, toIndex: number) {
+		if (fromIndex === toIndex) return;
+		const newOrder = [...battingOrder];
+		const [moved] = newOrder.splice(fromIndex, 1);
+		newOrder.splice(toIndex, 0, moved);
+		battingOrder = newOrder;
+		saveBattingOrder();
+	}
+
 	function onDragStart(e: DragEvent, index: number) {
 		dragIndex = index;
 		if (e.dataTransfer) {
@@ -264,23 +277,77 @@
 
 	function onDrop(e: DragEvent, index: number) {
 		e.preventDefault();
-		if (dragIndex === null || dragIndex === index) {
+		if (dragIndex === null) {
 			dragIndex = null;
 			dragOverIndex = null;
 			return;
 		}
-		const newOrder = [...battingOrder];
-		const [moved] = newOrder.splice(dragIndex, 1);
-		newOrder.splice(index, 0, moved);
-		battingOrder = newOrder;
+		reorderBattingOrder(dragIndex, index);
 		dragIndex = null;
 		dragOverIndex = null;
-		saveBattingOrder();
 	}
 
 	function onDragEnd() {
 		dragIndex = null;
 		dragOverIndex = null;
+	}
+
+	// --- Touch drag events (mobile) ---
+	function handleTouchStart(e: TouchEvent, index: number) {
+		const touch = e.touches[0];
+		dragIndex = index;
+
+		const target = e.currentTarget as HTMLElement;
+		const ghost = target.cloneNode(true) as HTMLElement;
+		ghost.style.position = 'fixed';
+		ghost.style.zIndex = '9999';
+		ghost.style.pointerEvents = 'none';
+		ghost.style.opacity = '0.85';
+		ghost.style.width = target.offsetWidth + 'px';
+		ghost.style.transform = 'scale(1.05) rotate(2deg)';
+		ghost.style.boxShadow = '0 8px 32px rgba(0,0,0,0.18)';
+		ghost.style.left = touch.clientX - target.offsetWidth / 2 + 'px';
+		ghost.style.top = touch.clientY - 30 + 'px';
+		document.body.appendChild(ghost);
+		touchGhost = ghost;
+
+		target.style.opacity = '0.3';
+	}
+
+	function handleTouchMove(e: TouchEvent) {
+		e.preventDefault();
+		const touch = e.touches[0];
+
+		if (touchGhost) {
+			const target = e.currentTarget as HTMLElement;
+			touchGhost.style.left = touch.clientX - target.offsetWidth / 2 + 'px';
+			touchGhost.style.top = touch.clientY - 30 + 'px';
+		}
+
+		const el = document.elementFromPoint(touch.clientX, touch.clientY);
+		if (el) {
+			const row = el.closest('[data-row-index]') as HTMLElement | null;
+			const idx = row ? parseInt(row.dataset.rowIndex ?? '', 10) : NaN;
+			touchCurrentIndex = Number.isNaN(idx) ? null : idx;
+			dragOverIndex = touchCurrentIndex;
+		}
+	}
+
+	function handleTouchEnd(e: TouchEvent) {
+		if (touchGhost) {
+			touchGhost.remove();
+			touchGhost = null;
+		}
+
+		const target = e.currentTarget as HTMLElement;
+		target.style.opacity = '1';
+
+		if (dragIndex !== null && touchCurrentIndex !== null && dragIndex !== touchCurrentIndex) {
+			reorderBattingOrder(dragIndex, touchCurrentIndex);
+		}
+		dragIndex = null;
+		dragOverIndex = null;
+		touchCurrentIndex = null;
 	}
 
 	async function saveBattingOrder() {
@@ -961,6 +1028,7 @@
 										getCellPosition(player.id, i + 1)
 									).filter((p) => p === 0).length}
 									<tr
+										data-row-index={idx}
 										draggable={true}
 										ondragstart={(e) => onDragStart(e, idx)}
 										ondragover={(e) => onDragOver(e, idx)}
@@ -974,10 +1042,17 @@
 										<td
 											class="bg-base-100 text-base-content border-base-300 sticky left-0 z-10 border-r font-medium"
 										>
-											<div class="flex items-center gap-2 select-none">
+											<div
+												class="flex cursor-grab touch-none items-center gap-2 select-none active:cursor-grabbing"
+												role="button"
+												tabindex="0"
+												ontouchstart={(e) => handleTouchStart(e, idx)}
+												ontouchmove={handleTouchMove}
+												ontouchend={handleTouchEnd}
+											>
 												<!-- Drag handle -->
 												<span
-													class="text-base-content/40 flex-shrink-0 cursor-grab text-lg active:cursor-grabbing"
+													class="text-base-content/40 flex-shrink-0 text-lg"
 													aria-hidden="true">⠿</span
 												>
 												<!-- Player info -->
@@ -1000,18 +1075,44 @@
 													<span
 														class="badge badge-xs {avail.status === 'late'
 															? 'badge-warning'
-															: 'badge-error'} ml-auto text-[9px] uppercase"
+															: 'badge-error'} text-[9px] uppercase"
 													>
 														{statusLabel(avail.status)}
 													</span>
 												{/if}
 												{#if avail && avail.injury_inning}
 													<span
-														class="badge badge-xs badge-error ml-auto text-[9px] uppercase"
+														class="badge badge-xs badge-error text-[9px] uppercase"
 														title="Injured in Inning {avail.injury_inning}"
 														>🏥 INN {avail.injury_inning}</span
 													>
 												{/if}
+
+												<!-- Mobile tap buttons: move up/down in batting order -->
+												<div class="ml-auto flex flex-col md:hidden">
+													<button
+														class="btn btn-ghost btn-xs h-5 min-h-0 px-1"
+														disabled={idx === 0}
+														onclick={(e) => {
+															e.stopPropagation();
+															reorderBattingOrder(idx, idx - 1);
+														}}
+														title={$t('lineup_tap_move_up')}
+													>
+														<span class="text-base">↑</span>
+													</button>
+													<button
+														class="btn btn-ghost btn-xs h-5 min-h-0 px-1"
+														disabled={idx === battingOrder.length - 1}
+														onclick={(e) => {
+															e.stopPropagation();
+															reorderBattingOrder(idx, idx + 1);
+														}}
+														title={$t('lineup_tap_move_down')}
+													>
+														<span class="text-base">↓</span>
+													</button>
+												</div>
 											</div>
 										</td>
 										{#each Array(numInnings) as _, inn}

@@ -193,7 +193,9 @@
 	"availability_tap_change_status": "Tap to change status",
 
 	"lineup_title": "Lineup Grid & Batting Order",
-	"lineup_description": "Drag rows to set batting order. Set positions, lock, then Fill Gaps.",
+	"lineup_description": "Drag rows to set batting order, or tap arrows to move players. Set positions, lock, then Fill Gaps.",
+	"lineup_tap_move_up": "Move up in batting order",
+	"lineup_tap_move_down": "Move down in batting order",
 	"lineup_saving": "Saving...",
 	"lineup_saved": "Saved",
 	"lineup_injury_mode": "Injury Mode",

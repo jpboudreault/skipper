@@ -193,7 +193,9 @@
 	"availability_tap_change_status": "Toucher pour changer le statut",
 
 	"lineup_title": "Grille d'alignement et ordre de frappe",
-	"lineup_description": "Glissez les rangées pour l'ordre de frappe. Définissez les positions, verrouillez, puis Combler les lacunes.",
+	"lineup_description": "Glissez les rangées pour l'ordre de frappe, ou touchez les flèches pour déplacer les joueurs. Définissez les positions, verrouillez, puis Combler les lacunes.",
+	"lineup_tap_move_up": "Monter dans l'ordre de frappe",
+	"lineup_tap_move_down": "Descendre dans l'ordre de frappe",
 	"lineup_saving": "Enregistrement...",
 	"lineup_saved": "Enregistré",
 	"lineup_injury_mode": "Mode blessure",

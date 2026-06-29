@@ -1,20 +1,21 @@
 # ⚾ Skipper
 
-**Skipper** is a coach-first web app for youth and amateur baseball teams. It handles the full game-day workflow — roster, availability, lineup optimization, official printouts, box scores, and season stats — in one place. FastAPI backend, SvelteKit frontend, deployed as a single container on [Fly.io](https://fly.io).
+**Skipper** is a coach-first web app for baseball teams. It handles the full game-day workflow — roster, availability, lineup optimization, official printouts, box scores, and season stats — in one place. FastAPI backend, SvelteKit frontend, deployed as a single container on [Fly.io](https://fly.io).
 
 ## Built for real coaching workflows
 
-Skipper was originally built for **Baseball Québec** house-league and competitive teams: coaches who need to submit an official **Ordre des Frappeurs** before each game, enter stats from a **feuille de pointage** after the game, and respect **pitch-count and rest rules** across a busy weekly schedule.
+Skipper was originally built for **LFBQ** coaches who need to submit a lineup before each game, maintains statistics for their players , and respect **pitch-count and rest rules** across a busy weekly schedule.
 
 **Baseball Québec is the default league format** — lineup printouts and AI scoresheet parsing use the Québec template out of the box. Other leagues can plug in their own formats via `tenants.json` (see [League formats](#league-formats) below).
 
 ## Why coaches use Skipper
 
 - **Stop rebuilding lineups from scratch** — an optimizer assigns positions inning-by-inning from your ratings, respects absences and injuries, and balances bench time fairly.
-- **Compete or develop on purpose** — switch game mode to maximize fielding strength in tight games, or maximize position variety for player development.
+- **Develop, compete, or go optimal** — pick game mode to chase fielding strength with multiple lineup choices, maximize position variety, or auto-apply the best-quality grid in one click.
+- **Preview before you commit** — when the optimizer offers several lineups, switch tabs to see the full inning grid for each option before applying.
 - **Game day, sorted** — track who's in, who's out, lock key positions, print the official batting-order card, and go.
 - **Stats without the spreadsheet grind** — snap a photo of the scoresheet and let AI pre-fill the batting grid; review, tweak, and save.
-- **Pitching rules enforced for you** — configurable pitch-count limits and rest days; eligibility checked before a player is sent to the mound.
+- **Pitching rules enforced for you** — configurable pitch-count limits and rest days; separate tournament pitch-count buckets; eligibility checked before a player is sent to the mound.
 - **One login, multiple teams** — manage several rosters (e.g. 13U and 15U) with isolated data and per-team league settings.
 - **Season view that actually helps** — batting, pitching, and position stats filtered by game type so you can see trends, not just totals.
 - **League schedule in sync** — pull season, playoff, and tournament games from Spordle (LFBQ); opponent W-L-D on every upcoming game before you even open the lineup tab.
@@ -25,17 +26,18 @@ Skipper was originally built for **Baseball Québec** house-league and competiti
 | Area | What you get |
 |------|----------------|
 | **Dashboard** | Upcoming games with opponent record (W-L-D), recent results, quick links to lineup/availability, pitching plan shortcut |
+| **Games** | Upcoming and past tabs; next-game hero cards; win/loss/draw pills on completed games; opponent overview on game detail |
 | **Roster** | Players, substitutes, head/assistant coaches, jersey numbers, default batting order |
 | **Position ratings** | Rate each player at every position; mark spots as forbidden |
-| **Schedule** | Season, postseason, and tournament games with opponent, venue, home/away, and game-type badges |
+| **Schedule** | Season, postseason, and tournament games with opponent, venue, home/away, and game-type badges; adjustable innings per game |
 | **Spordle sync (LFBQ)** | One-click import from multiple Spordle schedules (regular season + playoffs + tournaments); links games to league IDs without overwriting your game mode |
 | **Opponent intel** | Standing, W-L-D record, runs per game, last completed league games, and links to Spordle — season stats even when the upcoming game is a playoff or tourney |
-| **Availability** | Per-game present / absent / injured status; mid-game injury tracking |
-| **Lineup optimizer** | CP-SAT solver with compete & develop modes, locked cells, bench fairness, pitcher re-entry and rest constraints |
-| **Batting order** | Drag-and-drop order with printable official lineup card |
-| **Box scores** | Batting and pitching entry; photo-assisted scoresheet import (optional) |
-| **Pitching plan** | Rolling view of pitcher innings across upcoming games for rest planning |
-| **Stats** | Season batting, pitching, and position breakdowns; standings support wins, losses, and draws |
+| **Availability** | Per-game available / absent / late; drag on desktop, touch-drag or tap arrows on mobile |
+| **Lineup optimizer** | CP-SAT solver with **compete**, **develop**, and **optimal** modes; up to five previewable options (compete/develop); locked cells; bench-fairness constraints; mid-game injury marking; pitcher re-entry and rest rules; add/remove innings; lineup history snapshots |
+| **Batting order** | Drag-and-drop on desktop; touch-drag and ↑/↓ arrows on mobile; printable official lineup card and separate defensive-positions sheet |
+| **Box scores** | Batting and pitching entry; photo-assisted scoresheet import with improved Baseball Québec OCR (two-pass transcribe + interpret, row cropping) |
+| **Pitching plan** | Rolling view of pitcher innings across upcoming games; tournament pitch-count rest rules |
+| **Stats** | Season batting, pitching, and position breakdowns (bench excluded from field-position %); development trends (cumulative OPS, position variety); standings support wins, losses, and draws |
 | **Auth & teams** | Google or Microsoft sign-in; multiple isolated rosters per login; settings per team in `tenants.json` |
 
 ## Screenshots
@@ -53,8 +55,8 @@ Screenshots use **demo data only** — regenerate locally with [`bootstrap/`](bo
     <td width="50%"><img src="docs/screenshots/lineup.png" alt="Lineup grid and batting order"></td>
   </tr>
   <tr>
-    <td align="center"><em>Availability — drag players between columns</em></td>
-    <td align="center"><em>Lineup — inning grid with optimizer</em></td>
+    <td align="center"><em>Availability — drag or tap to set status</em></td>
+    <td align="center"><em>Lineup — optimizer with visual option picker</em></td>
   </tr>
   <tr>
     <td width="50%"><img src="docs/screenshots/batting-scorecard.png" alt="Batting scorecard entry"></td>
@@ -185,6 +187,10 @@ bash scripts/test_backend.sh
 
 # Frontend type-check
 cd frontend && npm run check
+
+# Scoresheet OCR eval (manual; needs ANTHROPIC_API_KEY — see backend/tests/fixtures/scoresheets/README.md)
+export ANTHROPIC_API_KEY=sk-ant-...
+PYTHONPATH=./backend backend/.venv/bin/python backend/tools/eval_scoresheets.py
 ```
 
 ## Deployment
