@@ -62,6 +62,38 @@ async def test_snapshot_save_list_restore(client, session):
 
 
 @pytest.mark.asyncio
+async def test_restore_snapshot_drops_cells_beyond_current_innings(client, session):
+    p1 = await _make_player(client, 1)
+    p2 = await _make_player(client, 2)
+    game = await _make_game(client)
+
+    await _set_lineup(client, game["id"], [
+        {"inning": 1, "player_id": p1["id"], "position": 1, "locked": False},
+        {"inning": 6, "player_id": p2["id"], "position": 2, "locked": False},
+    ])
+    snap_res = await client.post(f"/games/{game['id']}/lineup/snapshots", json={"label": "manual"})
+    assert snap_res.status_code == 200
+    snapshot_id = snap_res.json()["id"]
+
+    update_res = await client.put(
+        f"/games/{game['id']}",
+        json={"date": game["date"], "innings_played": 5},
+    )
+    assert update_res.status_code == 200
+
+    restore_res = await client.post(f"/games/{game['id']}/lineup/snapshots/{snapshot_id}/restore")
+    assert restore_res.status_code == 200
+    assert restore_res.json()["restored_cells"] == 1
+
+    restored = (await client.get(f"/games/{game['id']}/lineup")).json()
+    assert len(restored) == 1
+    assert restored[0]["inning"] == 1
+
+    save_res = await client.put(f"/games/{game['id']}/lineup", json=restored)
+    assert save_res.status_code == 200
+
+
+@pytest.mark.asyncio
 async def test_snapshot_empty_lineup_rejected(client, session):
     game = await _make_game(client)
     res = await client.post(f"/games/{game['id']}/lineup/snapshots", json={"label": "manual"})

@@ -603,6 +603,33 @@ async def test_solve_apply_persists_chosen_lineup(client: AsyncClient, session):
 
 
 @pytest.mark.asyncio
+async def test_solve_apply_rejects_stale_unavailable_assignment(client: AsyncClient, session):
+    game, _player_ids, _team = await _setup_solvable_game(client, mode="compete")
+
+    solve_res = await client.post(f"/games/{game['id']}/solve")
+    assert solve_res.status_code == 200
+    chosen = solve_res.json()["options"][0]["assignments"]
+    unavailable_player_id = chosen[0]["player_id"]
+
+    avail_res = await client.put(
+        f"/games/{game['id']}/availability",
+        json=[{"player_id": unavailable_player_id, "status": "absent"}],
+    )
+    assert avail_res.status_code == 200
+
+    apply_res = await client.post(
+        f"/games/{game['id']}/solve/apply",
+        json={"assignments": chosen},
+    )
+    assert apply_res.status_code == 400
+    assert "run fill gaps again" in apply_res.json()["detail"].lower()
+
+    lineup_res = await client.get(f"/games/{game['id']}/lineup")
+    assert lineup_res.status_code == 200
+    assert lineup_res.json() == []
+
+
+@pytest.mark.asyncio
 async def test_solve_apply_rejected_for_optimal(client: AsyncClient, session):
     game, _player_ids, _team = await _setup_solvable_game(client, mode="optimal")
 

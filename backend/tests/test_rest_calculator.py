@@ -132,3 +132,17 @@ def test_exclude_game_id(session):
     # With exclusion (we're re-solving this game): eligible
     result2 = get_pitcher_eligibility(player.id, today, "season", team, session, exclude_game_id=game.id)
     assert result2.eligible is True
+
+
+def test_tournament_innings_do_not_affect_season_limits(session):
+    team = make_team(session)
+    player = make_player(session, team)
+    today = date(2026, 6, 15)
+
+    tournament_game = make_game(session, team, today - timedelta(days=1), game_type="tournament")
+    make_pitching(session, tournament_game, player, ip_outs=12)
+
+    result = get_pitcher_eligibility(player.id, today, "season", team, session)
+    assert result.eligible is True
+    assert result.innings_last_7_days == 0
+    assert result.remaining_7_days == team.max_pitcher_innings_per_7_days
