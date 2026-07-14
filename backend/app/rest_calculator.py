@@ -79,6 +79,7 @@ def _check_innings_based(
     games_in_window = session.exec(
         select(Game).where(
             Game.team_id == team.id,
+            Game.game_type.in_(("season", "postseason")),
             Game.date >= window_start,
             Game.date <= game_date,
         )

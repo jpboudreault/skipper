@@ -20,7 +20,7 @@ from app.lineup_service import (
     restore_snapshot,
 )
 from app.db import get_session
-from typing import List, Optional
+from typing import Dict, List, Optional, Set, Tuple
 from pydantic import BaseModel
 import os
 import re
@@ -38,6 +38,114 @@ def validate_game_mode(mode: str) -> None:
 
 class ApplySolveBody(BaseModel):
     assignments: List[dict]
+
+
+def validate_solve_assignments(
+    assignments: List[dict],
+    game: Game,
+    team: Team,
+    available_players: List[Player],
+    existing_lineup: List[Lineup],
+    forbidden_by_player: Dict[int, Set[int]],
+    session: Session,
+) -> None:
+    """Reject stale/crafted solve options before they can corrupt persisted lineup rows."""
+    innings = resolve_lineup_innings(game, team)
+    available_ids = {p.id for p in available_players}
+    if len(available_ids) < 9:
+        raise_api_error(400, "insufficient_players", count=len(available_ids))
+
+    locked_positions = {
+        (cell.player_id, cell.inning): cell.position
+        for cell in existing_lineup
+        if cell.locked and cell.player_id in available_ids and 1 <= cell.inning <= innings
+    }
+    locked_field_positions = {
+        (cell.inning, cell.position): cell.player_id
+        for cell in existing_lineup
+        if (
+            cell.locked
+            and cell.position > 0
+            and cell.player_id in available_ids
+            and 1 <= cell.inning <= innings
+        )
+    }
+    seen_player_innings: Set[Tuple[int, int]] = set()
+    field_positions_by_inning: Dict[int, Set[int]] = {
+        inning: set() for inning in range(1, innings + 1)
+    }
+    pitcher_innings_by_player: Dict[int, List[int]] = {}
+
+    def reject_stale() -> None:
+        raise_api_error(400, "stale_lineup_assignments")
+
+    for assignment in assignments:
+        if not isinstance(assignment, dict):
+            reject_stale()
+        player_id = assignment.get("player_id")
+        inning = assignment.get("inning")
+        position = assignment.get("position")
+        locked = assignment.get("locked")
+        if (
+            type(player_id) is not int
+            or type(inning) is not int
+            or type(position) is not int
+            or type(locked) is not bool
+        ):
+            reject_stale()
+        if player_id not in available_ids or inning < 1 or inning > innings:
+            reject_stale()
+        if position < 0 or position > 9:
+            reject_stale()
+
+        key = (player_id, inning)
+        if key in seen_player_innings:
+            reject_stale()
+        seen_player_innings.add(key)
+
+        locked_position = locked_positions.get(key)
+        if locked_position is not None and locked_position != position:
+            reject_stale()
+
+        if position in forbidden_by_player.get(player_id, set()):
+            reject_stale()
+        if position > 0:
+            locked_player_id = locked_field_positions.get((inning, position))
+            if locked_player_id is not None and locked_player_id != player_id:
+                reject_stale()
+            if position in field_positions_by_inning[inning]:
+                reject_stale()
+            field_positions_by_inning[inning].add(position)
+        if position == 1:
+            pitcher_innings_by_player.setdefault(player_id, []).append(inning)
+
+    required_positions = set(range(1, 10))
+    for positions in field_positions_by_inning.values():
+        if positions != required_positions:
+            reject_stale()
+
+    for player_id, pitcher_innings in pitcher_innings_by_player.items():
+        pitcher_innings = sorted(pitcher_innings)
+        if len(pitcher_innings) > team.max_pitcher_innings_per_game:
+            reject_stale()
+        if pitcher_innings != list(range(pitcher_innings[0], pitcher_innings[-1] + 1)):
+            reject_stale()
+
+        eligibility = get_pitcher_eligibility(
+            player_id=player_id,
+            game_date=game.date,
+            game_type=game.game_type,
+            team=team,
+            session=session,
+            exclude_game_id=game.id,
+        )
+        if not eligibility.eligible:
+            reject_stale()
+        if game.game_type in ("season", "postseason") and (
+            len(pitcher_innings) > eligibility.remaining_today
+            or len(pitcher_innings) > eligibility.remaining_7_days
+        ):
+            reject_stale()
 
 # --- Helper Dependency ---
 
@@ -600,6 +708,17 @@ def apply_solve_option(
 
     available_players, _ = get_available_players(game, session)
     available_ids = {p.id for p in available_players}
+    existing_lineup = session.exec(select(Lineup).where(Lineup.game_id == game.id)).all()
+    _scores_by_player, forbidden_by_player = load_position_scores(game, session)
+    validate_solve_assignments(
+        body.assignments,
+        game,
+        team,
+        available_players,
+        existing_lineup,
+        forbidden_by_player,
+        session,
+    )
     existing_lineup = prune_unavailable_lineup_cells(game, available_ids, session)
 
     from app.optimizer import SolverResult

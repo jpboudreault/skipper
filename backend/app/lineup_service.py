@@ -347,6 +347,12 @@ def restore_snapshot(game: Game, snapshot_id: int, session: Session) -> int:
     snapshot = session.get(LineupSnapshot, snapshot_id)
     if not snapshot or snapshot.game_id != game.id:
         raise_api_error(404, "lineup_snapshot_not_found")
+    team = session.get(Team, game.team_id)
+    if not team:
+        raise_api_error(404, "team_not_found")
+    max_inning = game.innings_played or team.innings_per_game
+    players = session.exec(select(Player).where(Player.team_id == game.team_id)).all()
+    valid_player_ids = {p.id for p in players}
 
     try:
         cells = json.loads(snapshot.cells_json)
@@ -357,15 +363,33 @@ def restore_snapshot(game: Game, snapshot_id: int, session: Session) -> int:
     for c in existing:
         session.delete(c)
 
+    restored_count = 0
+    seen_cells: Set[Tuple[int, int]] = set()
     for cell in cells:
+        if not isinstance(cell, dict):
+            continue
+        inning = cell.get("inning")
+        player_id = cell.get("player_id")
+        position = cell.get("position")
+        if type(inning) is not int or type(player_id) is not int or type(position) is not int:
+            continue
+        if inning < 1 or inning > max_inning:
+            continue
+        if player_id not in valid_player_ids or position < 0 or position > 9:
+            continue
+        key = (inning, player_id)
+        if key in seen_cells:
+            continue
+        seen_cells.add(key)
         session.add(
             Lineup(
                 game_id=game.id,
-                inning=cell["inning"],
-                player_id=cell["player_id"],
-                position=cell["position"],
-                locked=cell.get("locked", False),
+                inning=inning,
+                player_id=player_id,
+                position=position,
+                locked=cell.get("locked", False) is True,
             )
         )
+        restored_count += 1
     session.commit()
-    return len(cells)
+    return restored_count
