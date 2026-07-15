@@ -2,6 +2,7 @@ from fastapi import APIRouter, Depends
 from datetime import date
 from sqlmodel import Session, or_, select
 from app.db import get_session
+from app.game_status import DISRUPTED_SCHEDULE_STATUSES
 from app.stats import (
     get_season_batting,
     get_season_pitching,
@@ -12,7 +13,15 @@ from app.stats import (
 from typing import List, Dict, Any
 from app.auth import get_team_membership
 from app.models import Game, Team
-from app.game_intel import serialize_games_with_intel
+from app.game_intel import serialize_games_with_intel, upcoming_games_for_team
+
+
+def _not_disrupted():
+    """SQL predicate excluding postponed/cancelled games (NULL status is kept)."""
+    return or_(
+        Game.schedule_status.is_(None),
+        Game.schedule_status.notin_(tuple(DISRUPTED_SCHEDULE_STATUSES)),
+    )
 
 router = APIRouter(prefix="/teams/{team_id}/stats", tags=["stats"])
 
@@ -50,23 +59,18 @@ def team_dashboard(team: Team = Depends(get_team_membership), session: Session =
         select(Game)
         .where(Game.team_id == team_id)
         .where(or_(Game.date < today, Game.result_runs_for.is_not(None)))
+        .where(_not_disrupted())
         .order_by(Game.date.desc(), Game.id.desc())
         .limit(1)
     ).first()
-    
-    upcoming_games = session.exec(
-        select(Game)
-        .where(Game.team_id == team_id)
-        .where(Game.date >= today)
-        .where(Game.result_runs_for.is_(None))
-        .order_by(Game.date.asc(), Game.id.asc())
-        .limit(3)
-    ).all()
-    
+
+    upcoming_games = upcoming_games_for_team(session, team_id)[:3]
+
     recent_games = session.exec(
         select(Game.id)
         .where(Game.team_id == team_id)
         .where(or_(Game.date < today, Game.result_runs_for.is_not(None)))
+        .where(_not_disrupted())
         .order_by(Game.date.desc(), Game.id.desc())
         .limit(5)
     ).all()

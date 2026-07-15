@@ -10,9 +10,16 @@ from app.league_integrations.lfbq_spordle.config import (
     get_intel_schedule_id,
     integration_is_configured,
     parse_schedules,
-    resolve_spordle_game_across_schedules,
+    config_with_page_slug,
+    page_slug_for_schedule,
+    resolve_spordle_game_with_schedule,
 )
 from app.league_integrations.lfbq_spordle.mapping import resolve_opponent_by_name
+from app.opponent_intel import (
+    format_record as _format_wld_record,
+    intel_dashboard_summary,
+    matchup_prefix as _matchup_prefix,
+)
 from app.standings_points import resolve_standings_points, win_pct as standings_win_pct
 from app.league_integrations.registry import register_integration
 from app.models import Game, Team
@@ -40,16 +47,8 @@ def _game_has_result(game: dict) -> bool:
     return len(stats) >= 2 and any(s.get("gameResult") for s in stats)
 
 
-def _matchup_prefix(home_away: str | None) -> str:
-    return "@" if home_away == "A" else "vs"
-
-
 def _is_draw_result(game_result: str | None) -> bool:
     return game_result in ("draw", "tie")
-
-
-def _format_wld_record(wins: int, losses: int, draws: int) -> str:
-    return f"{wins}-{losses}-{draws}"
 
 
 def _format_recent_game(game: dict, team_id: int) -> dict:
@@ -226,43 +225,6 @@ def get_opponent_intel_from_data(
     )
 
 
-def intel_dashboard_summary(intel: dict) -> dict:
-    """Compact opponent intel for dashboard game cards."""
-    if not intel.get("available"):
-        return {"available": False}
-
-    standing = intel.get("standing") or {}
-    recent = intel.get("recent_games") or []
-    last = recent[0] if recent else None
-    last_result = None
-    if last:
-        result = last.get("result")
-        prefix = (
-            "W"
-            if result == "win"
-            else "L"
-            if result == "loss"
-            else "D"
-            if result in ("tie", "draw")
-            else None
-        )
-        if prefix and last.get("score"):
-            last_result = f"{prefix} {last['score']}"
-            if last.get("opponent"):
-                last_result += f" {_matchup_prefix(last.get('home_away'))} {last['opponent']}"
-
-    wins = standing.get("wins", 0)
-    losses = standing.get("losses", 0)
-    draws = standing.get("draws", 0)
-    return {
-        "available": True,
-        "rank": standing.get("rank"),
-        "record": _format_wld_record(wins, losses, draws),
-        "runs_per_game": standing.get("avg_runs_for"),
-        "last_result": last_result,
-    }
-
-
 @register_integration("lfbq_spordle")
 def lfbq_spordle_opponent_intel(game: Game, team: Team, config: dict) -> dict:
     if not integration_is_configured(config):
@@ -282,7 +244,7 @@ def lfbq_spordle_opponent_intel(game: Game, team: Team, config: dict) -> dict:
             int(intel_schedule_id),
             cache_ttl_seconds=cache_ttl_seconds,
         )
-        spordle_game = resolve_spordle_game_across_schedules(
+        spordle_game, matched_schedule = resolve_spordle_game_with_schedule(
             game,
             our_team_id,
             schedules,
@@ -290,11 +252,15 @@ def lfbq_spordle_opponent_intel(game: Game, team: Team, config: dict) -> dict:
             cache_ttl_seconds=cache_ttl_seconds,
         )
         if spordle_game is not None:
+            link_config = config
+            if matched_schedule is not None:
+                slug = page_slug_for_schedule(config, matched_schedule["schedule_id"])
+                link_config = config_with_page_slug(config, slug)
             return get_opponent_intel_from_data(
                 spordle_game=spordle_game,
                 schedule_games=season_games,
                 our_team_id=our_team_id,
-                config=config,
+                config=link_config,
             )
 
         opponent = resolve_opponent_by_name(game, season_games, our_team_id)

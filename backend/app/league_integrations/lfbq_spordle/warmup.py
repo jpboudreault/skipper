@@ -12,6 +12,7 @@ from app.league_integrations.lfbq_spordle.config import (
     parse_integration_config,
     parse_schedules,
 )
+from app.game_status import is_disrupted_schedule_status
 from app.league_integrations.lfbq_spordle.mapping import resolve_spordle_game
 from app.league_integrations.registry import get_opponent_intel
 from app.models import Game, Team
@@ -44,14 +45,18 @@ def warmup_team_dashboard(session: Session, team: Team, *, limit: int = 3) -> di
     cache_ttl_seconds = int(cache_ttl_hours * 3600)
 
     today = date.today()
-    upcoming = session.exec(
-        select(Game)
-        .where(Game.team_id == team.id)
-        .where(Game.date >= today)
-        .where(Game.result_runs_for.is_(None))
-        .order_by(Game.date.asc(), Game.id.asc())
-        .limit(limit)
-    ).all()
+    upcoming = [
+        game
+        for game in session.exec(
+            select(Game)
+            .where(Game.team_id == team.id)
+            .where(Game.date >= today)
+            .where(Game.result_runs_for.is_(None))
+            .order_by(Game.date.asc(), Game.id.asc())
+            .limit(limit * 2)
+        ).all()
+        if not is_disrupted_schedule_status(game.schedule_status)
+    ][:limit]
 
     linked = 0
     for game in upcoming:

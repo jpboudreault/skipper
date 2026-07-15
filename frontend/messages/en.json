@@ -130,6 +130,8 @@
 	"games_no_games": "No games scheduled yet. Create one to get started!",
 	"games_details": "Details",
 	"games_score": "Score",
+	"games_status_postponed": "Postponed",
+	"games_status_cancelled": "Cancelled",
 	"games_delete_game_confirm": "Delete this game?",
 	"games_failed_create": "Failed to create game.",
 	"games_loading_pitching_plan": "Loading pitching plan...",

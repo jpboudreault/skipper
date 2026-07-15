@@ -39,6 +39,7 @@ def parse_schedules(config: dict) -> List[Dict[str, Any]]:
                     "schedule_id": int(schedule_id),
                     "game_type": game_type,
                     "label": entry.get("label"),
+                    "page_slug": entry.get("page_slug"),
                 }
             )
         if schedules:
@@ -74,6 +75,24 @@ def get_intel_schedule_id(config: dict) -> Optional[int]:
     return None
 
 
+def page_slug_for_schedule(config: dict, schedule_id: int) -> Optional[str]:
+    for schedule in parse_schedules(config):
+        if schedule["schedule_id"] == schedule_id:
+            slug = schedule.get("page_slug")
+            if slug:
+                return str(slug)
+    slug = config.get("page_slug")
+    return str(slug) if slug else None
+
+
+def config_with_page_slug(config: dict, page_slug: str | None) -> dict:
+    if not page_slug:
+        return config
+    merged = dict(config)
+    merged["page_slug"] = page_slug
+    return merged
+
+
 def resolve_spordle_game_across_schedules(
     game: Game,
     our_team_id: int,
@@ -93,3 +112,24 @@ def resolve_spordle_game_across_schedules(
         if spordle_game is not None:
             return spordle_game
     return None
+
+
+def resolve_spordle_game_with_schedule(
+    game: Game,
+    our_team_id: int,
+    schedules: List[Dict[str, Any]],
+    client: Any,
+    *,
+    cache_ttl_seconds: int,
+) -> tuple[Optional[dict], Optional[Dict[str, Any]]]:
+    from app.league_integrations.lfbq_spordle.mapping import resolve_spordle_game
+
+    for schedule in schedules:
+        schedule_games = client.get_schedule_games(
+            schedule["schedule_id"],
+            cache_ttl_seconds=cache_ttl_seconds,
+        )
+        spordle_game = resolve_spordle_game(game, schedule_games, our_team_id)
+        if spordle_game is not None:
+            return spordle_game, schedule
+    return None, None

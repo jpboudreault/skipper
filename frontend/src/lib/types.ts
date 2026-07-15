@@ -52,6 +52,7 @@ export interface Game {
 	game_type: GameType;
 	league?: string | null;
 	notes?: string | null;
+	schedule_status?: string | null;
 	external_source?: string | null;
 	external_game_id?: string | null;
 }

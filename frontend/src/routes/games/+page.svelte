@@ -9,7 +9,9 @@
 		splitGames,
 		gameResult,
 		homeAwayBadgeClass,
-		resultBadgeClass
+		resultBadgeClass,
+		scheduleStatusBadgeClass,
+		scheduleStatusLabelKey
 	} from '$lib/games';
 	import { activeTeam } from '$lib/teamContext';
 
@@ -216,6 +218,11 @@
 				<span class="badge badge-sm {gameTypeBadgeClass(game.game_type)}">
 					{$t(gameTypeKeys[game.game_type] ?? game.game_type)}
 				</span>
+				{#if scheduleStatusLabelKey(game.schedule_status)}
+					<span class="badge badge-sm {scheduleStatusBadgeClass(game.schedule_status)}">
+						{$t(scheduleStatusLabelKey(game.schedule_status))}
+					</span>
+				{/if}
 			</div>
 		</div>
 		<a
@@ -514,6 +521,13 @@
 										<span class="badge badge-sm badge-neutral">
 											{$t(gameTypeKeys[game.game_type] ?? game.game_type)}
 										</span>
+										{#if scheduleStatusLabelKey(game.schedule_status)}
+											<span
+												class="badge badge-sm {scheduleStatusBadgeClass(game.schedule_status)} ml-1"
+											>
+												{$t(scheduleStatusLabelKey(game.schedule_status))}
+											</span>
+										{/if}
 									</td>
 									<td>
 										{#if game.result_runs_for !== null && game.result_runs_against !== null}

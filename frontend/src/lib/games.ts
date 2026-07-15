@@ -6,7 +6,13 @@ export type GameLike = {
 	date: string;
 	result_runs_for?: number | null;
 	result_runs_against?: number | null;
+	schedule_status?: string | null;
 };
+
+export function isDisruptedScheduleStatus(status: string | null | undefined): boolean {
+	const normalized = status?.trim().toLowerCase();
+	return normalized === 'postponed' || normalized === 'cancelled';
+}
 
 /** Sports notation: home vs opponent, away @ opponent. */
 export function matchupPrefix(homeAway: HomeAway, vsLabel = 'vs'): string {
@@ -28,11 +34,30 @@ export function todayIso(): string {
 }
 
 export function isUpcomingGame(game: GameLike, today = todayIso()): boolean {
-	return game.date >= today && game.result_runs_for == null;
+	return (
+		game.date >= today &&
+		game.result_runs_for == null &&
+		!isDisruptedScheduleStatus(game.schedule_status)
+	);
 }
 
 export function isPastGame(game: GameLike, today = todayIso()): boolean {
+	if (isDisruptedScheduleStatus(game.schedule_status)) return true;
 	return game.date < today || game.result_runs_for != null;
+}
+
+export function scheduleStatusLabelKey(status: string | null | undefined): string {
+	const normalized = status?.trim().toLowerCase();
+	if (normalized === 'postponed') return 'games_status_postponed';
+	if (normalized === 'cancelled') return 'games_status_cancelled';
+	return '';
+}
+
+export function scheduleStatusBadgeClass(status: string | null | undefined): string {
+	const normalized = status?.trim().toLowerCase();
+	if (normalized === 'postponed') return 'badge-warning';
+	if (normalized === 'cancelled') return 'badge-error';
+	return 'badge-ghost';
 }
 
 export function splitGames<T extends GameLike>(games: T[], today = todayIso()) {

@@ -17,7 +17,13 @@ from app.league_integrations.lfbq_spordle.intel import (
     intel_dashboard_summary,
     recent_games_for_team,
 )
-from app.league_integrations.lfbq_spordle.mapping import resolve_opponent_by_name, resolve_spordle_game
+from app.league_integrations.lfbq_spordle.mapping import (
+    pick_existing_game,
+    resolve_opponent_by_name,
+    resolve_spordle_game,
+    spordle_game_to_fields,
+    is_disrupted_schedule_status,
+)
 from app.models import Game, Team
 
 FIXTURES = Path(__file__).parent / "fixtures" / "spordle"
@@ -26,6 +32,464 @@ FIXTURES = Path(__file__).parent / "fixtures" / "spordle"
 def load_fixture(name: str):
     with open(FIXTURES / name, encoding="utf-8") as f:
         return json.load(f)
+
+
+def test_spordle_game_to_fields_postponed_status():
+    fields = spordle_game_to_fields(
+        {
+            "id": 829373,
+            "date": "2026-07-17",
+            "number": "13UB-0130",
+            "homeTeamId": 167215,
+            "awayTeamId": 170000,
+            "homeTeam": {"id": 167215, "shortName": "DUCHESSES"},
+            "awayTeam": {"id": 170000, "shortName": "PHÉNIX"},
+            "status": "Postponed",
+            "comments": "Equipe en tournoi",
+            "teamStats": [],
+        },
+        167215,
+        default_league="LFBQ",
+    )
+    assert fields["schedule_status"] == "postponed"
+    assert fields["notes"] == "Equipe en tournoi"
+    assert "result_runs_for" not in fields
+    assert is_disrupted_schedule_status(fields["schedule_status"])
+
+
+def test_spordle_game_to_fields_score_dict_fallback():
+    fields = spordle_game_to_fields(
+        {
+            "id": 900100,
+            "date": "2026-07-13",
+            "number": "13UB-0126",
+            "homeTeamId": 167215,
+            "awayTeamId": 158339,
+            "homeTeam": {"id": 167215, "shortName": "DUCHESSES"},
+            "awayTeam": {"id": 158339, "shortName": "BRAVES"},
+            "status": "Active",
+            "teamStats": [],
+            "score": {"167215": 7, "158339": 3},
+        },
+        167215,
+        default_league="LFBQ",
+    )
+    assert fields["result_runs_for"] == 7
+    assert fields["result_runs_against"] == 3
+
+
+def test_pick_existing_game_matches_opponent_on_same_date():
+    existing = [
+        Game(
+            id=1,
+            team_id=1,
+            date=date(2026, 7, 17),
+            opponent="BRAVES",
+            game_type="tournament",
+        ),
+        Game(
+            id=2,
+            team_id=1,
+            date=date(2026, 7, 17),
+            opponent="PHÉNIX",
+            game_type="season",
+        ),
+    ]
+    spordle_game = {
+        "id": 880343,
+        "date": "2026-07-17",
+        "number": "F18",
+        "homeTeamId": 167215,
+        "awayTeamId": 158339,
+        "homeTeam": {"id": 167215, "shortName": "DUCHESSES"},
+        "awayTeam": {"id": 158339, "shortName": "BRAVES"},
+    }
+    match = pick_existing_game(existing, spordle_game, our_team_id=167215)
+    assert match is not None
+    assert match.opponent == "BRAVES"
+
+
+def test_pick_existing_game_does_not_clobber_other_linked_game_on_same_date():
+    # A postponed league game is already linked to a different Spordle id on the
+    # same day as a tournament game. The tournament game must NOT be merged into
+    # it — pick_existing_game should return None so the caller creates a new game.
+    existing = [
+        Game(
+            id=1,
+            team_id=1,
+            date=date(2026, 7, 17),
+            opponent="PHÉNIX",
+            game_number="13UB-0130",
+            game_type="season",
+            external_source="spordle",
+            external_game_id="829373",
+            schedule_status="postponed",
+        )
+    ]
+    tournament_game = {
+        "id": 880343,
+        "date": "2026-07-17",
+        "number": "F18",
+        "homeTeamId": 167215,
+        "awayTeamId": 158339,
+        "homeTeam": {"id": 167215, "shortName": "DUCHESSES"},
+        "awayTeam": {"id": 158339, "shortName": "BRAVES"},
+    }
+    assert pick_existing_game(existing, tournament_game, our_team_id=167215) is None
+
+
+def test_pick_existing_game_double_header_second_leg_not_merged():
+    # Double-header: two games same day vs the same opponent. Once the first leg
+    # is linked, the second leg (distinct Spordle number) must not merge into it.
+    existing = [
+        Game(
+            id=1,
+            team_id=1,
+            date=date(2026, 7, 20),
+            opponent="BRAVES",
+            game_number="F1",
+            game_type="tournament",
+            external_source="spordle",
+            external_game_id="900001",
+        )
+    ]
+    second_leg = {
+        "id": 900002,
+        "date": "2026-07-20",
+        "number": "F2",
+        "homeTeamId": 167215,
+        "awayTeamId": 158339,
+        "homeTeam": {"id": 167215, "shortName": "DUCHESSES"},
+        "awayTeam": {"id": 158339, "shortName": "BRAVES"},
+    }
+    assert pick_existing_game(existing, second_leg, our_team_id=167215) is None
+
+
+def test_pick_existing_game_double_header_matches_by_number_on_resync():
+    existing = [
+        Game(
+            id=1,
+            team_id=1,
+            date=date(2026, 7, 20),
+            opponent="BRAVES",
+            game_number="F1",
+            external_source="spordle",
+            external_game_id="900001",
+        ),
+        Game(
+            id=2,
+            team_id=1,
+            date=date(2026, 7, 20),
+            opponent="BRAVES",
+            game_number="F2",
+            external_source="spordle",
+            external_game_id="900002",
+        ),
+    ]
+    second_leg = {
+        "id": 900002,
+        "date": "2026-07-20",
+        "number": "F2",
+        "homeTeamId": 167215,
+        "awayTeamId": 158339,
+        "homeTeam": {"id": 167215, "shortName": "DUCHESSES"},
+        "awayTeam": {"id": 158339, "shortName": "BRAVES"},
+    }
+    match = pick_existing_game(existing, second_leg, our_team_id=167215)
+    assert match is not None
+    assert match.id == 2
+
+
+def test_resolve_spordle_game_double_header_by_number():
+    schedule = [
+        {
+            "id": 900001,
+            "date": "2026-07-20",
+            "number": "F1",
+            "homeTeamId": 167215,
+            "awayTeamId": 158339,
+            "homeTeam": {"id": 167215, "shortName": "DUCHESSES"},
+            "awayTeam": {"id": 158339, "shortName": "BRAVES"},
+        },
+        {
+            "id": 900002,
+            "date": "2026-07-20",
+            "number": "F2",
+            "homeTeamId": 167215,
+            "awayTeamId": 158339,
+            "homeTeam": {"id": 167215, "shortName": "DUCHESSES"},
+            "awayTeam": {"id": 158339, "shortName": "BRAVES"},
+        },
+    ]
+    game = Game(team_id=1, date=date(2026, 7, 20), opponent="BRAVES", game_number="F2")
+    resolved = resolve_spordle_game(game, schedule, 167215)
+    assert resolved is not None
+    assert resolved["id"] == 900002
+
+
+def test_resolve_spordle_game_ambiguous_double_header_returns_none():
+    schedule = [
+        {
+            "id": 900001,
+            "date": "2026-07-20",
+            "number": "F1",
+            "homeTeamId": 167215,
+            "awayTeamId": 158339,
+            "homeTeam": {"id": 167215, "shortName": "DUCHESSES"},
+            "awayTeam": {"id": 158339, "shortName": "BRAVES"},
+        },
+        {
+            "id": 900002,
+            "date": "2026-07-20",
+            "number": "F2",
+            "homeTeamId": 167215,
+            "awayTeamId": 158339,
+            "homeTeam": {"id": 167215, "shortName": "DUCHESSES"},
+            "awayTeam": {"id": 158339, "shortName": "BRAVES"},
+        },
+    ]
+    game = Game(team_id=1, date=date(2026, 7, 20), opponent="BRAVES")
+    assert resolve_spordle_game(game, schedule, 167215) is None
+
+
+@pytest.mark.asyncio
+async def test_sync_tournament_schedule_creates_game(client: AsyncClient, session):
+    team = session.get(Team, 1)
+    team.integration_version = "lfbq_spordle"
+    team.integration_config_json = json.dumps(
+        {
+            "our_spordle_team_id": 167215,
+            "schedules": [
+                {"schedule_id": 193093, "game_type": "season"},
+                {
+                    "schedule_id": 191260,
+                    "game_type": "tournament",
+                    "label": "Tournoi Longueuil",
+                    "page_slug": "tournoi-longueuil",
+                },
+            ],
+        }
+    )
+    session.add(team)
+    session.commit()
+
+    tournament_game = {
+        "id": 880343,
+        "date": "2026-07-17",
+        "number": "F18",
+        "scheduleId": 191260,
+        "homeTeamId": 167215,
+        "awayTeamId": 158339,
+        "homeTeam": {"id": 167215, "shortName": "DUCHESSES"},
+        "awayTeam": {"id": 158339, "shortName": "BRAVES"},
+        "status": "Active",
+        "teamStats": [],
+    }
+
+    def fake_get_schedule_games(schedule_id, **kwargs):
+        if schedule_id == 191260:
+            return [tournament_game]
+        return []
+
+    with patch(
+        "app.league_integrations.lfbq_spordle.sync._client.get_schedule_games",
+        side_effect=fake_get_schedule_games,
+    ):
+        res = await client.post("/games/sync-schedule")
+
+    payload = res.json()
+    assert res.status_code == 200
+    assert payload["ok"] is True
+    assert payload["created"] == 1
+
+    list_res = await client.get("/games/")
+    synced = list_res.json()
+    tournament = next(g for g in synced if g.get("external_game_id") == "880343")
+    assert tournament["game_type"] == "tournament"
+    assert tournament["opponent"] == "BRAVES"
+
+
+@pytest.mark.asyncio
+async def test_sync_same_day_league_and_tournament_games_both_created(
+    client: AsyncClient, session
+):
+    # Regression: a postponed league game and a tournament game on the same day
+    # must both sync. Previously the tournament game was merged into the league
+    # game because they shared a date.
+    team = session.get(Team, 1)
+    team.integration_version = "lfbq_spordle"
+    team.integration_config_json = json.dumps(
+        {
+            "our_spordle_team_id": 167215,
+            "schedules": [
+                {"schedule_id": 193093, "game_type": "season"},
+                {
+                    "schedule_id": 191260,
+                    "game_type": "tournament",
+                    "label": "Tournoi Longueuil",
+                    "page_slug": "tournoi-longueuil",
+                },
+            ],
+        }
+    )
+    session.add(team)
+    session.commit()
+
+    league_game = {
+        "id": 829373,
+        "date": "2026-07-17",
+        "number": "13UB-0130",
+        "scheduleId": 193093,
+        "homeTeamId": 167215,
+        "awayTeamId": 170000,
+        "homeTeam": {"id": 167215, "shortName": "DUCHESSES"},
+        "awayTeam": {"id": 170000, "shortName": "PHÉNIX"},
+        "status": "Postponed",
+        "comments": "Equipe en tournoi",
+        "teamStats": [],
+    }
+    tournament_game = {
+        "id": 880343,
+        "date": "2026-07-17",
+        "number": "F18",
+        "scheduleId": 191260,
+        "homeTeamId": 167215,
+        "awayTeamId": 158339,
+        "homeTeam": {"id": 167215, "shortName": "DUCHESSES"},
+        "awayTeam": {"id": 158339, "shortName": "BRAVES"},
+        "status": "Active",
+        "teamStats": [],
+    }
+
+    def fake_get_schedule_games(schedule_id, **kwargs):
+        if schedule_id == 193093:
+            return [league_game]
+        if schedule_id == 191260:
+            return [tournament_game]
+        return []
+
+    with patch(
+        "app.league_integrations.lfbq_spordle.sync._client.get_schedule_games",
+        side_effect=fake_get_schedule_games,
+    ):
+        res = await client.post("/games/sync-schedule")
+
+    payload = res.json()
+    assert res.status_code == 200
+    assert payload["created"] == 2
+
+    list_res = await client.get("/games/")
+    synced = list_res.json()
+    league = next(g for g in synced if g.get("external_game_id") == "829373")
+    tournament = next(g for g in synced if g.get("external_game_id") == "880343")
+    assert league["opponent"] == "PHÉNIX"
+    assert league["schedule_status"] == "postponed"
+    assert tournament["opponent"] == "BRAVES"
+    assert tournament["game_type"] == "tournament"
+
+
+@pytest.mark.asyncio
+async def test_sync_double_header_same_opponent_creates_two_and_is_idempotent(
+    client: AsyncClient, session
+):
+    team = session.get(Team, 1)
+    team.integration_version = "lfbq_spordle"
+    team.integration_config_json = json.dumps(
+        {"schedule_id": 193093, "our_spordle_team_id": 167215}
+    )
+    session.add(team)
+    session.commit()
+
+    leg1 = {
+        "id": 900001,
+        "date": "2026-07-20",
+        "number": "F1",
+        "scheduleId": 193093,
+        "homeTeamId": 167215,
+        "awayTeamId": 158339,
+        "homeTeam": {"id": 167215, "shortName": "DUCHESSES"},
+        "awayTeam": {"id": 158339, "shortName": "BRAVES"},
+        "status": "Active",
+        "teamStats": [],
+    }
+    leg2 = {
+        "id": 900002,
+        "date": "2026-07-20",
+        "number": "F2",
+        "scheduleId": 193093,
+        "homeTeamId": 167215,
+        "awayTeamId": 158339,
+        "homeTeam": {"id": 167215, "shortName": "DUCHESSES"},
+        "awayTeam": {"id": 158339, "shortName": "BRAVES"},
+        "status": "Active",
+        "teamStats": [],
+    }
+
+    with patch(
+        "app.league_integrations.lfbq_spordle.sync._client.get_schedule_games",
+        return_value=[leg1, leg2],
+    ):
+        first = await client.post("/games/sync-schedule")
+        assert first.status_code == 200
+        assert first.json()["created"] == 2
+
+        # Re-sync must update in place, not duplicate.
+        second = await client.post("/games/sync-schedule")
+        assert second.status_code == 200
+        assert second.json()["created"] == 0
+
+    list_res = await client.get("/games/")
+    double_header = [
+        g for g in list_res.json() if g.get("external_game_id") in ("900001", "900002")
+    ]
+    assert len(double_header) == 2
+    assert {g["external_game_id"] for g in double_header} == {"900001", "900002"}
+    assert all(g["opponent"] == "BRAVES" for g in double_header)
+
+
+@pytest.mark.asyncio
+async def test_sync_postponed_game_excluded_from_upcoming_intel(client: AsyncClient, session):
+    team = session.get(Team, 1)
+    team.integration_version = "lfbq_spordle"
+    team.integration_config_json = json.dumps(
+        {"schedule_id": 193093, "our_spordle_team_id": 167215}
+    )
+    session.add(team)
+    session.commit()
+
+    postponed_game = {
+        "id": 829373,
+        "date": "2026-07-17",
+        "number": "13UB-0130",
+        "homeTeamId": 167215,
+        "awayTeamId": 170000,
+        "homeTeam": {"id": 167215, "shortName": "DUCHESSES"},
+        "awayTeam": {"id": 170000, "shortName": "PHÉNIX"},
+        "status": "Postponed",
+        "comments": "Equipe en tournoi",
+        "teamStats": [],
+    }
+
+    with patch(
+        "app.league_integrations.lfbq_spordle.sync._client.get_schedule_games",
+        return_value=[postponed_game],
+    ):
+        res = await client.post("/games/sync-schedule")
+
+    assert res.status_code == 200
+    list_res = await client.get("/games/")
+    synced = list_res.json()
+    game = next(g for g in synced if g.get("external_game_id") == "829373")
+    assert game["schedule_status"] == "postponed"
+
+    intel_res = await client.get("/games/upcoming-intel")
+    upcoming_ids = {row["id"] for row in intel_res.json()}
+    assert game["id"] not in upcoming_ids
+
+    dashboard_res = await client.get(f"/teams/{team.id}/stats/dashboard")
+    assert dashboard_res.status_code == 200
+    dashboard_upcoming_ids = {g["id"] for g in dashboard_res.json()["upcoming_games"]}
+    assert game["id"] not in dashboard_upcoming_ids
 
 
 def test_parse_schedules_legacy_single_schedule_id():
@@ -597,6 +1061,8 @@ async def test_dashboard_includes_intel_teaser(client: AsyncClient, session):
     with patch(
         "app.stats_routes.date"
     ) as mock_date, patch(
+        "app.game_intel.date"
+    ) as mock_intel_date, patch(
         "app.league_integrations.lfbq_spordle.intel._client.get_schedule_games",
         return_value=schedule,
     ), patch(
@@ -606,6 +1072,7 @@ async def test_dashboard_includes_intel_teaser(client: AsyncClient, session):
         return_value=schedule,
     ):
         mock_date.today.return_value = date(2026, 5, 15)
+        mock_intel_date.today.return_value = date(2026, 5, 15)
         mock_warmup_date.today.return_value = date(2026, 5, 15)
         await client.post(f"/teams/{team.id}/stats/dashboard/warmup")
         res = await client.get(f"/teams/{team.id}/stats/dashboard")

@@ -130,6 +130,8 @@
 	"games_no_games": "Aucun match prévu. Créez-en un pour commencer!",
 	"games_details": "Détails",
 	"games_score": "Score",
+	"games_status_postponed": "Reporté",
+	"games_status_cancelled": "Annulé",
 	"games_delete_game_confirm": "Supprimer ce match?",
 	"games_failed_create": "Échec de la création du match.",
 	"games_loading_pitching_plan": "Chargement du plan de lancer...",

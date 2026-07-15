@@ -28,6 +28,12 @@ Configure per team in `backend/app/tenants.json`:
         "schedule_id": 196000,
         "game_type": "tournament",
         "label": "Provincial"
+      },
+      {
+        "schedule_id": 191260,
+        "game_type": "tournament",
+        "label": "Tournoi Longueuil",
+        "page_slug": "tournoi-longueuil"
       }
     ]
   }
@@ -40,7 +46,7 @@ After changing `tenants.json`, redeploy (or restart locally). Startup syncs inte
 
 | Field | Required for | Description |
 |-------|----------------|-------------|
-| `schedules` | Sync (recommended) | List of Spordle schedules for this team. Each entry has `schedule_id`, `game_type` (`season`, `postseason`, or `tournament`), and optional `label`. |
+| `schedules` | Sync (recommended) | List of Spordle schedules for this team. Each entry has `schedule_id`, `game_type` (`season`, `postseason`, or `tournament`), optional `label`, and optional `page_slug` when the tournament uses a different Spordle page than the league. |
 | `schedule_id` | Sync (legacy) | Single schedule ID. Still supported; treated as one `season` schedule when `schedules` is omitted. |
 | `our_spordle_team_id` | Sync, opponent intel | Your team’s Spordle team ID. Same across all schedules for the same roster. |
 | `page_slug` | Spordle links | League slug in Spordle Page URLs (`page.spordle.com/fr/{page_slug}/…`). |
@@ -88,7 +94,7 @@ https://page.spordle.com/fr/ligue-feminine-de-baseball-du-quebec/schedule-stats-
 
 With `lfbq_spordle` configured:
 
-- **Sync schedule** (Games page) — imports/updates games from every configured Spordle schedule; new games get `game_type` from their schedule entry (`season`, `postseason`, or `tournament`). Does not overwrite game mode or game type on existing games.
+- **Sync schedule** (Games page) — imports/updates games from every configured Spordle schedule; new games get `game_type` from their schedule entry (`season`, `postseason`, or `tournament`). Maps Spordle `Postponed` / `Cancelled` status into `schedule_status`, keeps Spordle comments in `notes`, and backfills scores from `teamStats` or the Spordle `score` object. Postponed/cancelled games are excluded from upcoming views. Does not overwrite game mode or game type on existing games.
 - **Opponent intel** (game overview) — standing, runs per game, and last 5 completed opponent games from the **season** schedule only; works for upcoming games from any configured schedule, and for manually entered games when the opponent name matches a Spordle team.
 
 Optional env var: `SPORDLE_API_KEY` (defaults to the public Play API key used by Spordle Page).

@@ -98,6 +98,7 @@ class Game(SQLModel, table=True):
     game_type: str = Field(default="season")  # 'season', 'postseason', or 'tournament'
     league: Optional[str] = None
     notes: Optional[str] = None
+    schedule_status: Optional[str] = None  # spordle: active, postponed, cancelled, ...
     external_source: Optional[str] = None
     external_game_id: Optional[str] = None
     created_at: Optional[datetime] = Field(default_factory=datetime.utcnow)
