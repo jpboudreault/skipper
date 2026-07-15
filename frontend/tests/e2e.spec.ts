@@ -51,9 +51,7 @@ test('Pitching page preserves partial innings when saving', async ({ page }) => 
 		await route.fulfill({ json });
 	});
 	await page.route('**/api/players/', async (route) => {
-		const json = [
-			{ id: 1, first_name: 'Test', last_name: 'Pitcher', jersey: 10, is_coach: false }
-		];
+		const json = [{ id: 1, first_name: 'Test', last_name: 'Pitcher', jersey: 10, is_coach: false }];
 		await route.fulfill({ json });
 	});
 	await page.route('**/api/games/1/availability', async (route) => {
