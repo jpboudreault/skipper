@@ -81,6 +81,11 @@
 		return Math.max(0, outsExited - outsEntered);
 	}
 
+	function parseInningInput(value: string): number {
+		const parsed = parseFloat(value);
+		return Number.isFinite(parsed) ? parsed : 0;
+	}
+
 	function addRow(markDirty = true) {
 		appearances = [
 			...appearances,
@@ -206,7 +211,7 @@
 									value={app.inning_entered === 0 ? '' : app.inning_entered}
 									oninput={(e) => {
 										const v = (e.currentTarget as HTMLInputElement).value;
-										app.inning_entered = parseInt(v) || 0;
+										app.inning_entered = parseInningInput(v);
 										app.ip_outs = calculateOuts(app.inning_entered, app.inning_exited);
 										isDirty = true;
 									}}
@@ -221,7 +226,7 @@
 									value={app.inning_exited === 0 ? '' : app.inning_exited}
 									oninput={(e) => {
 										const v = (e.currentTarget as HTMLInputElement).value;
-										app.inning_exited = parseInt(v) || 0;
+										app.inning_exited = parseInningInput(v);
 										app.ip_outs = calculateOuts(app.inning_entered, app.inning_exited);
 										isDirty = true;
 									}}
