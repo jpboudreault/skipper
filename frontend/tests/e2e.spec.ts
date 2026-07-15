@@ -6,6 +6,10 @@ test('Login page shows Skipper branding', async ({ page }) => {
 });
 
 test('Lineup page has print button and printable card', async ({ page }) => {
+	await page
+		.context()
+		.addCookies([{ name: 'session', value: 'test-token', domain: 'localhost', path: '/' }]);
+
 	await page.route('**/api/games/1', async (route) => {
 		const json = { id: 1, team_id: 1, date: '2026-05-28', mode: 'compete', game_type: 'season' };
 		await route.fulfill({ json });
@@ -41,6 +45,10 @@ test('Lineup page has print button and printable card', async ({ page }) => {
 
 test('Pitching page preserves partial innings when saving', async ({ page }) => {
 	let savedPayload: unknown = null;
+
+	await page
+		.context()
+		.addCookies([{ name: 'session', value: 'test-token', domain: 'localhost', path: '/' }]);
 
 	await page.route('**/api/games/1', async (route) => {
 		const json = { id: 1, team_id: 1, date: '2026-05-28', mode: 'compete', game_type: 'season' };
