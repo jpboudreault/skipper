@@ -39,7 +39,7 @@ test('Lineup page has print button and printable card', async ({ page }) => {
 
 	await expect(page.getByRole('button', { name: /Print Lineup/i })).toBeVisible();
 
-	const printTitle = page.getByText('ORDRE DES FRAPPEURS');
+	const printTitle = page.getByText('ORDRE DES FRAPPEURS').first();
 	await expect(printTitle).toBeAttached();
 });
 
