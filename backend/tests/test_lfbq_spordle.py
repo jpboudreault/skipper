@@ -73,9 +73,32 @@ def test_spordle_game_to_fields_score_dict_fallback():
         },
         167215,
         default_league="LFBQ",
+        today=date(2026, 7, 16),
     )
     assert fields["result_runs_for"] == 7
     assert fields["result_runs_against"] == 3
+
+
+def test_spordle_game_to_fields_ignores_today_score_dict_without_result():
+    fields = spordle_game_to_fields(
+        {
+            "id": 900100,
+            "date": "2026-07-16",
+            "number": "13UB-0126",
+            "homeTeamId": 167215,
+            "awayTeamId": 158339,
+            "homeTeam": {"id": 167215, "shortName": "DUCHESSES"},
+            "awayTeam": {"id": 158339, "shortName": "BRAVES"},
+            "status": "Active",
+            "teamStats": [],
+            "score": {"167215": 2, "158339": 1},
+        },
+        167215,
+        default_league="LFBQ",
+        today=date(2026, 7, 16),
+    )
+    assert "result_runs_for" not in fields
+    assert "result_runs_against" not in fields
 
 
 def test_pick_existing_game_matches_opponent_on_same_date():
@@ -445,6 +468,58 @@ async def test_sync_double_header_same_opponent_creates_two_and_is_idempotent(
     assert len(double_header) == 2
     assert {g["external_game_id"] for g in double_header} == {"900001", "900002"}
     assert all(g["opponent"] == "BRAVES" for g in double_header)
+
+
+@pytest.mark.asyncio
+async def test_sync_authoritative_team_stats_overwrite_stale_synced_score(
+    client: AsyncClient, session
+):
+    team = session.get(Team, 1)
+    team.integration_version = "lfbq_spordle"
+    team.integration_config_json = json.dumps(
+        {"schedule_id": 193093, "our_spordle_team_id": 167215}
+    )
+    session.add(team)
+    stale_game = Game(
+        team_id=team.id,
+        date=date(2026, 7, 16),
+        opponent="BRAVES",
+        external_source="spordle",
+        external_game_id="900100",
+        result_runs_for=2,
+        result_runs_against=1,
+    )
+    session.add(stale_game)
+    session.commit()
+
+    completed_game = {
+        "id": 900100,
+        "date": "2026-07-16",
+        "number": "13UB-0126",
+        "scheduleId": 193093,
+        "homeTeamId": 167215,
+        "awayTeamId": 158339,
+        "homeTeam": {"id": 167215, "shortName": "DUCHESSES"},
+        "awayTeam": {"id": 158339, "shortName": "BRAVES"},
+        "status": "Active",
+        "teamStats": [
+            {"teamId": 167215, "goalFor": 7, "goalAgainst": 3, "gameResult": "win"},
+            {"teamId": 158339, "goalFor": 3, "goalAgainst": 7, "gameResult": "loss"},
+        ],
+        "score": {"167215": 7, "158339": 3},
+    }
+
+    with patch(
+        "app.league_integrations.lfbq_spordle.sync._client.get_schedule_games",
+        return_value=[completed_game],
+    ):
+        res = await client.post("/games/sync-schedule")
+
+    assert res.status_code == 200
+    list_res = await client.get("/games/")
+    synced = next(g for g in list_res.json() if g.get("external_game_id") == "900100")
+    assert synced["result_runs_for"] == 7
+    assert synced["result_runs_against"] == 3
 
 
 @pytest.mark.asyncio

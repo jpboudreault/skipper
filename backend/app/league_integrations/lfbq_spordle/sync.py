@@ -15,6 +15,7 @@ from app.league_integrations.lfbq_spordle.config import (
 from app.league_integrations.lfbq_spordle.mapping import (
     games_for_team,
     pick_existing_game,
+    spordle_game_has_authoritative_result,
     spordle_game_to_fields,
 )
 from app.models import Availability, Game, Player, Team
@@ -36,12 +37,12 @@ def _seed_availability(session: Session, game_id: int, team_id: int) -> None:
         )
 
 
-def _apply_spordle_fields(game: Game, fields: dict) -> None:
+def _apply_spordle_fields(game: Game, fields: dict, *, overwrite_results: bool = False) -> None:
     for key, value in fields.items():
         if value is None:
             continue
         if key in ("result_runs_for", "result_runs_against"):
-            if getattr(game, key) is None:
+            if overwrite_results or getattr(game, key) is None:
                 setattr(game, key, value)
             continue
         setattr(game, key, value)
@@ -87,7 +88,11 @@ def sync_team_schedule(session: Session, team: Team) -> dict:
             match = pick_existing_game(existing_games, spordle_game, our_team_id=our_team_id)
             if match:
                 had_external = bool(match.external_game_id)
-                _apply_spordle_fields(match, fields)
+                _apply_spordle_fields(
+                    match,
+                    fields,
+                    overwrite_results=spordle_game_has_authoritative_result(spordle_game, our_team_id),
+                )
                 session.add(match)
                 updated += 1
                 schedule_updated += 1

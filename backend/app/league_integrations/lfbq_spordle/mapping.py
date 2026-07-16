@@ -41,6 +41,21 @@ def _stat_for_team(game: dict, team_id: int) -> Optional[dict]:
     return None
 
 
+def spordle_game_has_authoritative_result(spordle_game: dict, our_team_id: int) -> bool:
+    stat = _stat_for_team(spordle_game, our_team_id)
+    return bool(stat and stat.get("gameResult"))
+
+
+def _spordle_game_date(spordle_game: dict) -> Optional[date]:
+    raw_date = spordle_game.get("date")
+    if not raw_date:
+        return None
+    try:
+        return date.fromisoformat(str(raw_date))
+    except ValueError:
+        return None
+
+
 def _scores_from_score_dict(spordle_game: dict, our_team_id: int) -> tuple[Optional[int], Optional[int]]:
     score = spordle_game.get("score")
     if not isinstance(score, dict):
@@ -66,11 +81,19 @@ def _schedule_notes(spordle_game: dict) -> Optional[str]:
     return None
 
 
-def spordle_game_to_fields(spordle_game: dict, our_team_id: int, *, default_league: Optional[str]) -> dict:
+def spordle_game_to_fields(
+    spordle_game: dict,
+    our_team_id: int,
+    *,
+    default_league: Optional[str],
+    today: Optional[date] = None,
+) -> dict:
     home_id = spordle_game.get("homeTeamId")
     is_home = home_id == our_team_id
     stat = _stat_for_team(spordle_game, our_team_id)
     schedule_status = normalize_spordle_status(spordle_game.get("status"))
+    game_date = _spordle_game_date(spordle_game)
+    today = today or date.today()
 
     fields = {
         "date": spordle_game.get("date"),
@@ -95,7 +118,7 @@ def spordle_game_to_fields(spordle_game: dict, our_team_id: int, *, default_leag
     if stat and stat.get("gameResult"):
         fields["result_runs_for"] = stat.get("goalFor")
         fields["result_runs_against"] = stat.get("goalAgainst")
-    elif not is_disrupted_schedule_status(schedule_status):
+    elif game_date is not None and game_date < today and not is_disrupted_schedule_status(schedule_status):
         runs_for, runs_against = _scores_from_score_dict(spordle_game, our_team_id)
         if runs_for is not None and runs_against is not None:
             fields["result_runs_for"] = runs_for
