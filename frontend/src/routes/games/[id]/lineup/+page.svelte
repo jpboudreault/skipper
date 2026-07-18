@@ -24,11 +24,15 @@
 	let applyingOption = $state(false);
 	let savingOrder = $state(false);
 	let autoSaving = $state(false);
+	let lineupSaveError = $state(false);
 	let injuryMode = $state(false);
 	let changingInnings = $state(false);
 	let printTarget: 'lineup' | 'defense' | null = $state(null);
 	let snapshots: any[] = $state([]);
 	let showHistory = $state(false);
+	let lineupSaveChain: Promise<void> = Promise.resolve();
+	let lineupSaveGeneration = 0;
+	let clearAutoSavingTimer: ReturnType<typeof setTimeout> | null = null;
 
 	const MIN_INNINGS = 1;
 	const MAX_INNINGS = 12;
@@ -491,25 +495,55 @@
 		return lineup.some((l) => l.inning === inning && l.locked);
 	}
 
+	function lineupPayload() {
+		return lineup.map((l) => ({
+			inning: l.inning,
+			player_id: l.player_id,
+			position: l.position,
+			locked: l.locked || false
+		}));
+	}
+
+	async function persistLineup(cells: ReturnType<typeof lineupPayload>) {
+		const res = await apiFetch(`/games/${$page.params.id}/lineup`, {
+			method: 'PUT',
+			headers: { 'Content-Type': 'application/json' },
+			body: JSON.stringify(cells)
+		});
+		if (!res.ok) {
+			throw new Error(`Lineup save failed with status ${res.status}`);
+		}
+	}
+
 	async function saveLineup() {
+		const cells = lineupPayload();
+		const generation = ++lineupSaveGeneration;
 		autoSaving = true;
+		if (clearAutoSavingTimer) {
+			clearTimeout(clearAutoSavingTimer);
+			clearAutoSavingTimer = null;
+		}
+
+		const saveRun = lineupSaveChain.then(() => persistLineup(cells));
+		lineupSaveChain = saveRun.catch(() => {});
+
 		try {
-			const cells = lineup.map((l) => ({
-				inning: l.inning,
-				player_id: l.player_id,
-				position: l.position,
-				locked: l.locked || false
-			}));
-			await apiFetch(`/games/${$page.params.id}/lineup`, {
-				method: 'PUT',
-				headers: { 'Content-Type': 'application/json' },
-				body: JSON.stringify(cells)
-			});
+			await saveRun;
+			if (generation === lineupSaveGeneration) {
+				lineupSaveError = false;
+			}
+			return true;
 		} catch (e) {
 			console.error(e);
+			if (generation === lineupSaveGeneration) {
+				lineupSaveError = true;
+			}
+			return false;
 		} finally {
-			setTimeout(() => {
-				autoSaving = false;
+			clearAutoSavingTimer = setTimeout(() => {
+				if (generation === lineupSaveGeneration) {
+					autoSaving = false;
+				}
 			}, 800);
 		}
 	}
@@ -690,6 +724,10 @@
 				{#if autoSaving}
 					<span class="loading loading-spinner loading-xs text-primary mr-2"></span>
 					<span class="text-base-content/60 mr-2 text-xs">{$t('lineup_saving')}</span>
+				{:else if lineupSaveError}
+					<span class="badge badge-error badge-outline mr-2 gap-1">
+						! {$t('common_failed_to_save')}
+					</span>
 				{:else}
 					<span class="badge badge-success badge-outline mr-2 gap-1">
 						✓ {$t('lineup_saved')}
@@ -864,9 +902,7 @@
 							<table class="table-sm table-pin-rows table-pin-cols table w-full">
 								<thead class="bg-base-200">
 									<tr>
-										<th
-											class="bg-base-300 text-base-content sticky left-0 z-20 w-48 font-bold"
-										>
+										<th class="bg-base-300 text-base-content sticky left-0 z-20 w-48 font-bold">
 											{$t('lineup_order_player')}
 										</th>
 										{#each Array(numInnings) as _, inn}
@@ -883,10 +919,7 @@
 									{#each battingOrder as playerId}
 										{@const player = getPlayer(playerId)}
 										{#if player}
-											{@const benchCount = getOptionBenchCount(
-												activeOption.assignments,
-												player.id
-											)}
+											{@const benchCount = getOptionBenchCount(activeOption.assignments, player.id)}
 											<tr class="hover:bg-base-200/50">
 												<td
 													class="bg-base-100 text-base-content border-base-300 sticky left-0 z-10 border-r font-medium"
@@ -1051,9 +1084,8 @@
 												ontouchend={handleTouchEnd}
 											>
 												<!-- Drag handle -->
-												<span
-													class="text-base-content/40 flex-shrink-0 text-lg"
-													aria-hidden="true">⠿</span
+												<span class="text-base-content/40 flex-shrink-0 text-lg" aria-hidden="true"
+													>⠿</span
 												>
 												<!-- Player info -->
 												<span class="text-base-content/50 w-6 flex-shrink-0 text-right text-xs"

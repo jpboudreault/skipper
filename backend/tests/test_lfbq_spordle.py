@@ -310,6 +310,67 @@ async def test_sync_tournament_schedule_creates_game(client: AsyncClient, sessio
 
 
 @pytest.mark.asyncio
+async def test_sync_tournament_schedule_updates_game_type_when_linking_existing_game(
+    client: AsyncClient, session
+):
+    team = session.get(Team, 1)
+    team.integration_version = "lfbq_spordle"
+    team.integration_config_json = json.dumps(
+        {
+            "our_spordle_team_id": 167215,
+            "schedules": [
+                {
+                    "schedule_id": 191260,
+                    "game_type": "tournament",
+                    "label": "Tournoi Longueuil",
+                    "page_slug": "tournoi-longueuil",
+                },
+            ],
+        }
+    )
+    session.add(team)
+    session.add(
+        Game(
+            team_id=team.id,
+            date=date(2026, 7, 17),
+            opponent="BRAVES",
+            game_type="season",
+        )
+    )
+    session.commit()
+
+    tournament_game = {
+        "id": 880343,
+        "date": "2026-07-17",
+        "number": "F18",
+        "scheduleId": 191260,
+        "homeTeamId": 167215,
+        "awayTeamId": 158339,
+        "homeTeam": {"id": 167215, "shortName": "DUCHESSES"},
+        "awayTeam": {"id": 158339, "shortName": "BRAVES"},
+        "status": "Active",
+        "teamStats": [],
+    }
+
+    with patch(
+        "app.league_integrations.lfbq_spordle.sync._client.get_schedule_games",
+        return_value=[tournament_game],
+    ):
+        res = await client.post("/games/sync-schedule")
+
+    payload = res.json()
+    assert res.status_code == 200
+    assert payload["created"] == 0
+    assert payload["updated"] == 1
+    assert payload["linked"] == 1
+
+    list_res = await client.get("/games/")
+    synced = list_res.json()
+    tournament = next(g for g in synced if g.get("external_game_id") == "880343")
+    assert tournament["game_type"] == "tournament"
+
+
+@pytest.mark.asyncio
 async def test_sync_same_day_league_and_tournament_games_both_created(
     client: AsyncClient, session
 ):
