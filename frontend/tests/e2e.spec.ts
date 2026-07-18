@@ -1,4 +1,14 @@
-import { test, expect } from '@playwright/test';
+import { test, expect, type Page } from '@playwright/test';
+
+async function addSessionCookie(page: Page) {
+	await page.context().addCookies([
+		{
+			name: 'session',
+			value: 'test-token',
+			url: 'http://localhost:5173'
+		}
+	]);
+}
 
 test('Login page shows Skipper branding', async ({ page }) => {
 	await page.goto('/login');
@@ -6,6 +16,7 @@ test('Login page shows Skipper branding', async ({ page }) => {
 });
 
 test('Lineup page has print button and printable card', async ({ page }) => {
+	await addSessionCookie(page);
 	await page.route('**/api/games/1', async (route) => {
 		const json = { id: 1, team_id: 1, date: '2026-05-28', mode: 'compete', game_type: 'season' };
 		await route.fulfill({ json });
@@ -40,6 +51,7 @@ test('Lineup page has print button and printable card', async ({ page }) => {
 });
 
 test('Lineup autosave serializes rapid full-replacement saves', async ({ page }) => {
+	await addSessionCookie(page);
 	const putPayloads: unknown[][] = [];
 	let releaseFirstPut: () => void = () => {};
 	let firstPutStarted: () => void = () => {};
