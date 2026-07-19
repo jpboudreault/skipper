@@ -109,34 +109,38 @@ async def test_delete_player_removes_dependent_rows(client, session):
     ])
     session.commit()
 
-    response = await client.delete(f"/players/{player.id}")
+    player_id = player.id
+    teammate_id = teammate.id
+    game_id = game.id
+
+    response = await client.delete(f"/players/{player_id}")
 
     assert response.status_code == 200
     assert response.json() == {"ok": True}
     session.expire_all()
-    assert session.get(Player, player.id) is None
+    assert session.get(Player, player_id) is None
     assert session.exec(
-        select(PositionScore).where(PositionScore.player_id == player.id)
+        select(PositionScore).where(PositionScore.player_id == player_id)
     ).all() == []
     assert session.exec(
-        select(Availability).where(Availability.player_id == player.id)
+        select(Availability).where(Availability.player_id == player_id)
     ).all() == []
     assert session.exec(
-        select(BattingLine).where(BattingLine.player_id == player.id)
+        select(BattingLine).where(BattingLine.player_id == player_id)
     ).all() == []
     assert session.exec(
-        select(PitchingAppearance).where(PitchingAppearance.player_id == player.id)
+        select(PitchingAppearance).where(PitchingAppearance.player_id == player_id)
     ).all() == []
-    assert session.exec(select(Lineup).where(Lineup.player_id == player.id)).all() == []
+    assert session.exec(select(Lineup).where(Lineup.player_id == player_id)).all() == []
     remaining_lineup = session.exec(
-        select(Lineup).where(Lineup.player_id == teammate.id)
+        select(Lineup).where(Lineup.player_id == teammate_id)
     ).all()
     assert len(remaining_lineup) == 1
 
     snapshot = session.exec(
-        select(LineupSnapshot).where(LineupSnapshot.game_id == game.id)
+        select(LineupSnapshot).where(LineupSnapshot.game_id == game_id)
     ).one()
     cells = json.loads(snapshot.cells_json)
     assert cells == [
-        {"inning": 1, "player_id": teammate.id, "position": 2, "locked": False},
+        {"inning": 1, "player_id": teammate_id, "position": 2, "locked": False},
     ]
