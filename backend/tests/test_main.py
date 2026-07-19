@@ -1,5 +1,17 @@
 import pytest
-from app.models import Player
+from datetime import date
+import json
+from sqlmodel import select
+from app.models import (
+    Availability,
+    BattingLine,
+    Game,
+    Lineup,
+    LineupSnapshot,
+    PitchingAppearance,
+    Player,
+    PositionScore,
+)
 
 @pytest.mark.asyncio
 async def test_read_root(client):
@@ -61,3 +73,74 @@ async def test_delete_player(client, session):
     # Verify it's gone
     get_res = await client.get("/players/")
     assert len(get_res.json()) == 0
+
+@pytest.mark.asyncio
+async def test_delete_player_removes_dependent_rows(client, session):
+    player = Player(first_name="Alice", last_name="Smith", jersey=1, team_id=1)
+    teammate = Player(first_name="Bob", last_name="Jones", jersey=2, team_id=1)
+    game = Game(date=date(2026, 7, 19), team_id=1)
+    session.add_all([player, teammate, game])
+    session.commit()
+    session.refresh(player)
+    session.refresh(teammate)
+    session.refresh(game)
+
+    session.add_all([
+        PositionScore(player_id=player.id, position=1, score=7),
+        Availability(game_id=game.id, player_id=player.id, status="available"),
+        BattingLine(game_id=game.id, player_id=player.id, singles=1),
+        PitchingAppearance(
+            game_id=game.id,
+            player_id=player.id,
+            inning_entered=1,
+            inning_exited=2,
+            ip_outs=3,
+        ),
+        Lineup(game_id=game.id, inning=1, player_id=player.id, position=1),
+        Lineup(game_id=game.id, inning=1, player_id=teammate.id, position=2),
+        LineupSnapshot(
+            game_id=game.id,
+            label="before-delete",
+            cells_json=json.dumps([
+                {"inning": 1, "player_id": player.id, "position": 1, "locked": True},
+                {"inning": 1, "player_id": teammate.id, "position": 2, "locked": False},
+            ]),
+        ),
+    ])
+    session.commit()
+
+    player_id = player.id
+    teammate_id = teammate.id
+    game_id = game.id
+
+    response = await client.delete(f"/players/{player_id}")
+
+    assert response.status_code == 200
+    assert response.json() == {"ok": True}
+    session.expire_all()
+    assert session.get(Player, player_id) is None
+    assert session.exec(
+        select(PositionScore).where(PositionScore.player_id == player_id)
+    ).all() == []
+    assert session.exec(
+        select(Availability).where(Availability.player_id == player_id)
+    ).all() == []
+    assert session.exec(
+        select(BattingLine).where(BattingLine.player_id == player_id)
+    ).all() == []
+    assert session.exec(
+        select(PitchingAppearance).where(PitchingAppearance.player_id == player_id)
+    ).all() == []
+    assert session.exec(select(Lineup).where(Lineup.player_id == player_id)).all() == []
+    remaining_lineup = session.exec(
+        select(Lineup).where(Lineup.player_id == teammate_id)
+    ).all()
+    assert len(remaining_lineup) == 1
+
+    snapshot = session.exec(
+        select(LineupSnapshot).where(LineupSnapshot.game_id == game_id)
+    ).one()
+    cells = json.loads(snapshot.cells_json)
+    assert cells == [
+        {"inning": 1, "player_id": teammate_id, "position": 2, "locked": False},
+    ]

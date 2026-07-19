@@ -1,7 +1,20 @@
 from fastapi import FastAPI, Depends, HTTPException, Request
 from fastapi.middleware.cors import CORSMiddleware
 from sqlmodel import Session, select
-from app.models import Team, Player, PositionScore, User, PlayerUpdate, PlayerCreate
+from app.models import (
+    Team,
+    Player,
+    PositionScore,
+    User,
+    PlayerUpdate,
+    PlayerCreate,
+    Game,
+    Availability,
+    BattingLine,
+    PitchingAppearance,
+    Lineup,
+    LineupSnapshot,
+)
 from app.db import engine, get_session, create_db_and_tables
 from typing import List
 from pydantic import BaseModel
@@ -321,7 +334,31 @@ def delete_player(player_id: int, session: Session = Depends(get_session), activ
     db_player = session.exec(select(Player).where(Player.id == player_id, Player.team_id == active_team.id)).first()
     if not db_player:
         raise_api_error(404, "player_not_found", player_id=player_id)
-        
+
+    for model in (PositionScore, Availability, BattingLine, PitchingAppearance, Lineup):
+        rows = session.exec(select(model).where(model.player_id == player_id)).all()
+        for row in rows:
+            session.delete(row)
+
+    team_games = session.exec(select(Game).where(Game.team_id == active_team.id)).all()
+    team_game_ids = {game.id for game in team_games}
+    snapshots = session.exec(
+        select(LineupSnapshot).where(LineupSnapshot.game_id.in_(team_game_ids))
+    ).all()
+    for snapshot in snapshots:
+        try:
+            cells = json.loads(snapshot.cells_json)
+        except (json.JSONDecodeError, TypeError):
+            continue
+        kept_cells = [cell for cell in cells if cell.get("player_id") != player_id]
+        if kept_cells == cells:
+            continue
+        if kept_cells:
+            snapshot.cells_json = json.dumps(kept_cells)
+            session.add(snapshot)
+        else:
+            session.delete(snapshot)
+
     session.delete(db_player)
     session.commit()
     return {"ok": True}
