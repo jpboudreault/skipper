@@ -113,6 +113,7 @@ async def test_delete_player_removes_dependent_rows(client, session):
 
     assert response.status_code == 200
     assert response.json() == {"ok": True}
+    session.expire_all()
     assert session.get(Player, player.id) is None
     assert session.exec(
         select(PositionScore).where(PositionScore.player_id == player.id)
