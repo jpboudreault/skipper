@@ -104,7 +104,7 @@ async def test_lineup_rejects_duplicate_field_position_and_preserves_existing(cl
     )
 
     assert res.status_code == 400
-    assert res.json()["detail"]["code"] == "duplicate_lineup_position"
+    assert "Multiple players are assigned to position 6" in res.json()["detail"]
 
     current = (await client.get(f"/games/{game['id']}/lineup")).json()
     assert len(current) == 1
@@ -126,7 +126,7 @@ async def test_lineup_rejects_same_player_in_multiple_positions(client, session)
     )
 
     assert res.status_code == 400
-    assert res.json()["detail"]["code"] == "multiple_lineup_positions"
+    assert "assigned to multiple positions (5, 6)" in res.json()["detail"]
 
 
 @pytest.mark.asyncio
@@ -145,7 +145,7 @@ async def test_lineup_rejects_forbidden_position(client, session):
     )
 
     assert res.status_code == 400
-    assert res.json()["detail"]["code"] == "forbidden_position"
+    assert "forbidden from playing Shortstop" in res.json()["detail"]
 
 
 @pytest.mark.asyncio
@@ -159,7 +159,7 @@ async def test_lineup_rejects_substitute_pitcher(client, session):
     )
 
     assert res.status_code == 400
-    assert res.json()["detail"]["code"] == "forbidden_position_substitute_pitch"
+    assert "is a substitute and cannot pitch" in res.json()["detail"]
 
 
 @pytest.mark.asyncio
