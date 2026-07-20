@@ -86,6 +86,83 @@ async def test_pitcher_status_endpoint(client, session):
 
 
 @pytest.mark.asyncio
+async def test_lineup_rejects_duplicate_field_position_and_preserves_existing(client, session):
+    p1 = await _make_player(client, jersey=21)
+    p2 = await _make_player(client, jersey=22)
+    game = await _make_game(client)
+
+    original = [{"inning": 1, "player_id": p1["id"], "position": 1, "locked": False}]
+    put_res = await client.put(f"/games/{game['id']}/lineup", json=original)
+    assert put_res.status_code == 200
+
+    res = await client.put(
+        f"/games/{game['id']}/lineup",
+        json=[
+            {"inning": 1, "player_id": p1["id"], "position": 6, "locked": False},
+            {"inning": 1, "player_id": p2["id"], "position": 6, "locked": False},
+        ],
+    )
+
+    assert res.status_code == 400
+    assert res.json()["detail"]["code"] == "duplicate_lineup_position"
+
+    current = (await client.get(f"/games/{game['id']}/lineup")).json()
+    assert len(current) == 1
+    assert current[0]["player_id"] == p1["id"]
+    assert current[0]["position"] == 1
+
+
+@pytest.mark.asyncio
+async def test_lineup_rejects_same_player_in_multiple_positions(client, session):
+    player = await _make_player(client, jersey=23)
+    game = await _make_game(client)
+
+    res = await client.put(
+        f"/games/{game['id']}/lineup",
+        json=[
+            {"inning": 1, "player_id": player["id"], "position": 5, "locked": False},
+            {"inning": 1, "player_id": player["id"], "position": 6, "locked": False},
+        ],
+    )
+
+    assert res.status_code == 400
+    assert res.json()["detail"]["code"] == "multiple_lineup_positions"
+
+
+@pytest.mark.asyncio
+async def test_lineup_rejects_forbidden_position(client, session):
+    player = await _make_player(client, jersey=24)
+    game = await _make_game(client)
+    score_res = await client.put(
+        f"/api/position-scores/{player['id']}/6",
+        json={"score": 0, "is_forbidden": True},
+    )
+    assert score_res.status_code == 200
+
+    res = await client.put(
+        f"/games/{game['id']}/lineup",
+        json=[{"inning": 1, "player_id": player["id"], "position": 6, "locked": False}],
+    )
+
+    assert res.status_code == 400
+    assert res.json()["detail"]["code"] == "forbidden_position"
+
+
+@pytest.mark.asyncio
+async def test_lineup_rejects_substitute_pitcher(client, session):
+    player = await _make_player(client, jersey=25, is_substitute=True)
+    game = await _make_game(client)
+
+    res = await client.put(
+        f"/games/{game['id']}/lineup",
+        json=[{"inning": 1, "player_id": player["id"], "position": 1, "locked": False}],
+    )
+
+    assert res.status_code == 400
+    assert res.json()["detail"]["code"] == "forbidden_position_substitute_pitch"
+
+
+@pytest.mark.asyncio
 async def test_config_endpoint_public(client):
     res = await client.get("/config")
     assert res.status_code == 200

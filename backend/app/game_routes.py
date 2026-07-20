@@ -29,6 +29,8 @@ router = APIRouter(prefix="/games", tags=["games"])
 
 MIN_LINEUP_INNINGS = 1
 MAX_LINEUP_INNINGS = 12
+MIN_LINEUP_POSITION = 0
+MAX_LINEUP_POSITION = 9
 
 
 def validate_game_mode(mode: str) -> None:
@@ -419,6 +421,81 @@ class LineupCell(BaseModel):
     position: int  # 0=bench, 1-9=field
     locked: bool = False
 
+
+def _player_display_name(player: Optional[Player], player_id: int) -> str:
+    if player:
+        return f"{player.first_name} {player.last_name}"
+    return f"Player #{player_id}"
+
+
+def validate_lineup_payload(
+    cells: List[LineupCell],
+    players: List[Player],
+    forbidden_by_player: dict[int, set[int]],
+) -> None:
+    players_by_id = {player.id: player for player in players}
+    positions_by_inning: dict[tuple[int, int], list[str]] = {}
+    player_positions_by_inning: dict[tuple[int, int], list[int]] = {}
+
+    for cell in cells:
+        if cell.position < MIN_LINEUP_POSITION or cell.position > MAX_LINEUP_POSITION:
+            raise_api_error(
+                400,
+                "invalid_lineup_position",
+                inning=cell.inning,
+                position=cell.position,
+            )
+
+        player = players_by_id.get(cell.player_id)
+        player_positions_by_inning.setdefault((cell.inning, cell.player_id), []).append(cell.position)
+
+        if cell.position <= 0:
+            continue
+
+        p_name = _player_display_name(player, cell.player_id)
+        positions_by_inning.setdefault((cell.inning, cell.position), []).append(p_name)
+
+        forbidden = set(forbidden_by_player.get(cell.player_id, set()))
+        if player and player.is_substitute:
+            forbidden.add(1)
+        if cell.position in forbidden:
+            if cell.position == 1 and player and player.is_substitute:
+                raise_api_error(
+                    400,
+                    "forbidden_position_substitute_pitch",
+                    player_name=p_name,
+                    inning=cell.inning,
+                )
+            raise_api_error(
+                400,
+                "forbidden_position",
+                player_name=p_name,
+                position=cell.position,
+                position_id=cell.position,
+                inning=cell.inning,
+            )
+
+    for (inning, player_id), positions in player_positions_by_inning.items():
+        if len(positions) > 1:
+            player = players_by_id.get(player_id)
+            raise_api_error(
+                400,
+                "multiple_lineup_positions",
+                inning=inning,
+                player_name=_player_display_name(player, player_id),
+                positions=", ".join(str(position) for position in positions),
+            )
+
+    for (inning, position), player_names in positions_by_inning.items():
+        if len(player_names) > 1:
+            raise_api_error(
+                400,
+                "duplicate_lineup_position",
+                inning=inning,
+                position=position,
+                players=", ".join(player_names),
+            )
+
 @router.get("/{game_id}/lineup", response_model=List[Lineup])
 def get_lineup(game: Game = Depends(get_active_game), session: Session = Depends(get_session)):
     cells = session.exec(select(Lineup).where(Lineup.game_id == game.id)).all()
@@ -445,6 +522,9 @@ def set_lineup(cells: List[LineupCell], game: Game = Depends(get_active_game), s
                 inning=cell.inning,
                 max_inning=max_inning,
             )
+
+    _, forbidden_by_player = load_position_scores(game, session)
+    validate_lineup_payload(cells, players, forbidden_by_player)
 
     # Delete existing lineup for this game and re-insert
     existing = session.exec(select(Lineup).where(Lineup.game_id == game.id)).all()
