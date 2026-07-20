@@ -380,14 +380,13 @@ async def test_solve_lock_validations(client: AsyncClient, session):
     })
     game = game_res.json()
 
-    # A. Test duplicate positions (e.g. P0 and P1 locked to Pitcher in inning 1)
-    await client.put(f"/games/{game['id']}/lineup", json=[
+    # A. Duplicate field positions are rejected before they can be saved.
+    lineup_res = await client.put(f"/games/{game['id']}/lineup", json=[
         {"inning": 1, "player_id": player_ids[0], "position": 1, "locked": True},
         {"inning": 1, "player_id": player_ids[1], "position": 1, "locked": True}
     ])
-    solve_res = await client.post(f"/games/{game['id']}/solve")
-    assert solve_res.status_code == 400
-    assert "Multiple players locked to the same position" in solve_res.json()["detail"]
+    assert lineup_res.status_code == 400
+    assert "Multiple players are assigned to position" in lineup_res.json()["detail"]
 
     # C. Test Pitcher Innings Game Cap (e.g. P0 locked to Pitcher in 3 innings, with cap of 2)
     await client.put(f"/games/{game['id']}/lineup", json=[
