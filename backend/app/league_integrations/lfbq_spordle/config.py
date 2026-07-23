@@ -108,7 +108,12 @@ def resolve_spordle_game_across_schedules(
             schedule["schedule_id"],
             cache_ttl_seconds=cache_ttl_seconds,
         )
-        spordle_game = resolve_spordle_game(game, schedule_games, our_team_id)
+        spordle_game = resolve_spordle_game(
+            game,
+            schedule_games,
+            our_team_id,
+            schedule_game_type=schedule["game_type"],
+        )
         if spordle_game is not None:
             return spordle_game
     return None
@@ -129,7 +134,12 @@ def resolve_spordle_game_with_schedule(
             schedule["schedule_id"],
             cache_ttl_seconds=cache_ttl_seconds,
         )
-        spordle_game = resolve_spordle_game(game, schedule_games, our_team_id)
+        spordle_game = resolve_spordle_game(
+            game,
+            schedule_games,
+            our_team_id,
+            schedule_game_type=schedule["game_type"],
+        )
         if spordle_game is not None:
             return spordle_game, schedule
     return None, None

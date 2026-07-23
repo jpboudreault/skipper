@@ -84,7 +84,12 @@ def sync_team_schedule(session: Session, team: Team) -> dict:
             )
             if fields.get("date"):
                 fields["date"] = date_type.fromisoformat(fields["date"])
-            match = pick_existing_game(existing_games, spordle_game, our_team_id=our_team_id)
+            match = pick_existing_game(
+                existing_games,
+                spordle_game,
+                our_team_id=our_team_id,
+                schedule_game_type=schedule["game_type"],
+            )
             if match:
                 had_external = bool(match.external_game_id)
                 _apply_spordle_fields(match, fields)

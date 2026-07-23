@@ -180,11 +180,16 @@ def resolve_spordle_game(
     game: Game,
     schedule_games: List[dict],
     our_team_id: int,
+    *,
+    schedule_game_type: str | None = None,
 ) -> Optional[dict]:
     if game.external_game_id:
         for spordle_game in schedule_games:
             if str(spordle_game.get("id")) == str(game.external_game_id):
                 return spordle_game
+        return None
+
+    if schedule_game_type is not None and (game.game_type or "season") != schedule_game_type:
         return None
 
     game_date = _game_date_str(game)
@@ -203,6 +208,11 @@ def resolve_spordle_game(
     if game.game_number:
         numbered = [g for g in candidates if g.get("number") == game.game_number]
         if len(numbered) == 1:
+            if game.opponent:
+                expected_opponent = normalize_team_label(game.opponent)
+                actual_opponent = normalize_team_label(opponent_name(numbered[0], our_team_id))
+                if expected_opponent and actual_opponent != expected_opponent:
+                    return None
             return numbered[0]
         if numbered:
             candidates = numbered
@@ -228,6 +238,7 @@ def pick_existing_game(
     spordle_game: dict,
     *,
     our_team_id: int | None = None,
+    schedule_game_type: str | None = None,
 ) -> Optional[Game]:
     external_id = str(spordle_game["id"])
     for game in existing_games:
@@ -239,21 +250,17 @@ def pick_existing_game(
     if not date_matches:
         return None
 
-    # Exact game-number match is the strongest signal and distinguishes the
-    # halves of a double-header, which share a date (and often an opponent).
-    number = spordle_game.get("number")
-    if number:
-        for game in date_matches:
-            if game.game_number and game.game_number == number:
-                return game
-
     # Only games not already linked to a *different* Spordle fixture can absorb
     # this one. A same-date game with a different external_game_id belongs to
     # another fixture (double-header half, or a league vs. tournament game on
     # the same day), so it must never be overwritten.
     linkable = [g for g in date_matches if not g.external_game_id]
 
+    if schedule_game_type is not None:
+        linkable = [g for g in linkable if (g.game_type or "season") == schedule_game_type]
+
     # A game the user already numbered differently is also a distinct fixture.
+    number = spordle_game.get("number")
     if number:
         linkable = [g for g in linkable if not (g.game_number and g.game_number != number)]
 
@@ -265,6 +272,8 @@ def pick_existing_game(
             ]
             if len(name_matches) == 1:
                 return name_matches[0]
+            if any(normalize_team_label(g.opponent) for g in linkable):
+                return None
 
     if len(linkable) == 1:
         return linkable[0]
