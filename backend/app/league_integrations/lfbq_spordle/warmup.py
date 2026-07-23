@@ -20,10 +20,21 @@ from app.models import Game, Team
 _client = SpordleClient()
 
 
-def _link_game_to_spordle(game: Game, schedule_games: list, our_team_id: int) -> bool:
+def _link_game_to_spordle(
+    game: Game,
+    schedule_games: list,
+    our_team_id: int,
+    *,
+    schedule_game_type: str | None = None,
+) -> bool:
     if game.external_game_id:
         return False
-    spordle_game = resolve_spordle_game(game, schedule_games, our_team_id)
+    spordle_game = resolve_spordle_game(
+        game,
+        schedule_games,
+        our_team_id,
+        schedule_game_type=schedule_game_type,
+    )
     if spordle_game is None:
         return False
     game.external_source = "spordle"
@@ -67,7 +78,12 @@ def warmup_team_dashboard(session: Session, team: Team, *, limit: int = 3) -> di
                 schedule["schedule_id"],
                 cache_ttl_seconds=cache_ttl_seconds,
             )
-            if _link_game_to_spordle(game, schedule_games, our_team_id):
+            if _link_game_to_spordle(
+                game,
+                schedule_games,
+                our_team_id,
+                schedule_game_type=schedule["game_type"],
+            ):
                 session.add(game)
                 linked += 1
                 break
