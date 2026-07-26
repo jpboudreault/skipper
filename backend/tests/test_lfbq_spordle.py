@@ -492,6 +492,63 @@ async def test_sync_postponed_game_excluded_from_upcoming_intel(client: AsyncCli
     assert game["id"] not in dashboard_upcoming_ids
 
 
+@pytest.mark.asyncio
+async def test_sync_rescheduled_game_clears_postponed_status(client: AsyncClient, session):
+    team = session.get(Team, 1)
+    team.integration_version = "lfbq_spordle"
+    team.integration_config_json = json.dumps(
+        {"schedule_id": 193093, "our_spordle_team_id": 167215}
+    )
+    session.add(team)
+    session.commit()
+
+    postponed_game = {
+        "id": 829373,
+        "date": "2026-07-17",
+        "number": "13UB-0130",
+        "homeTeamId": 167215,
+        "awayTeamId": 170000,
+        "homeTeam": {"id": 167215, "shortName": "DUCHESSES"},
+        "awayTeam": {"id": 170000, "shortName": "PHÉNIX"},
+        "status": "Postponed",
+        "comments": "Equipe en tournoi",
+        "teamStats": [],
+    }
+    rescheduled_game = {
+        "id": 829373,
+        "date": "2026-08-03",
+        "number": "13UB-0130",
+        "homeTeamId": 167215,
+        "awayTeamId": 170000,
+        "homeTeam": {"id": 167215, "shortName": "DUCHESSES"},
+        "awayTeam": {"id": 170000, "shortName": "PHÉNIX"},
+        "teamStats": [],
+    }
+
+    with patch(
+        "app.league_integrations.lfbq_spordle.sync._client.get_schedule_games",
+        return_value=[postponed_game],
+    ):
+        first = await client.post("/games/sync-schedule")
+    assert first.status_code == 200
+
+    with patch(
+        "app.league_integrations.lfbq_spordle.sync._client.get_schedule_games",
+        return_value=[rescheduled_game],
+    ):
+        second = await client.post("/games/sync-schedule")
+    assert second.status_code == 200
+
+    list_res = await client.get("/games/")
+    game = next(g for g in list_res.json() if g.get("external_game_id") == "829373")
+    assert game["date"] == "2026-08-03"
+    assert game["schedule_status"] is None
+
+    intel_res = await client.get("/games/upcoming-intel")
+    upcoming_ids = {row["id"] for row in intel_res.json()}
+    assert game["id"] in upcoming_ids
+
+
 def test_parse_schedules_legacy_single_schedule_id():
     schedules = parse_schedules({"schedule_id": 193095})
     assert schedules == [{"schedule_id": 193095, "game_type": "season", "label": None}]
