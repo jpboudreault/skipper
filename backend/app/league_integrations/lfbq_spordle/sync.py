@@ -38,6 +38,9 @@ def _seed_availability(session: Session, game_id: int, team_id: int) -> None:
 
 def _apply_spordle_fields(game: Game, fields: dict) -> None:
     for key, value in fields.items():
+        if key == "schedule_status":
+            setattr(game, key, value)
+            continue
         if value is None:
             continue
         if key in ("result_runs_for", "result_runs_against"):
