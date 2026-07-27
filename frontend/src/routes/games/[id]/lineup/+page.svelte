@@ -353,32 +353,11 @@
 	async function saveBattingOrder() {
 		savingOrder = true;
 		try {
-			// Build payload: one BattingLine update per player with their batting_order position
-			const lines = battingOrder.map((playerId, idx) => {
-				const existing = battingLines.find((b: any) => b.player_id === playerId) || {};
-				return {
-					player_id: playerId,
-					batting_order: idx + 1,
-					singles: existing.singles ?? 0,
-					doubles: existing.doubles ?? 0,
-					triples: existing.triples ?? 0,
-					hr: existing.hr ?? 0,
-					bb: existing.bb ?? 0,
-					bbi: existing.bbi ?? 0,
-					hbp: existing.hbp ?? 0,
-					sac: existing.sac ?? 0,
-					intf: existing.intf ?? 0,
-					kd: existing.kd ?? 0,
-					ke: existing.ke ?? 0,
-					outs_not_k: existing.outs_not_k ?? 0,
-					fc: existing.fc ?? 0,
-					roe: existing.roe ?? 0,
-					rbi: existing.rbi ?? 0,
-					r: existing.r ?? 0,
-					sb: existing.sb ?? 0
-				};
-			});
-			const res = await apiFetch(`/games/${$page.params.id}/batting`, {
+			const lines = battingOrder.map((playerId, idx) => ({
+				player_id: playerId,
+				batting_order: idx + 1
+			}));
+			const res = await apiFetch(`/games/${$page.params.id}/batting/order`, {
 				method: 'PUT',
 				headers: { 'Content-Type': 'application/json' },
 				body: JSON.stringify(lines)

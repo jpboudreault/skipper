@@ -285,6 +285,10 @@ class BattingLineUpdate(BaseModel):
     r: int = 0
     sb: int = 0
 
+class BattingOrderUpdate(BaseModel):
+    player_id: int
+    batting_order: int
+
 @router.put("/{game_id}/batting")
 def set_batting(lines: List[BattingLineUpdate], game: Game = Depends(get_active_game), session: Session = Depends(get_session)):
     player_ids = [line.player_id for line in lines]
@@ -308,6 +312,34 @@ def set_batting(lines: List[BattingLineUpdate], game: Game = Depends(get_active_
         else:
             bl = BattingLine(game_id=game.id, **line.model_dump())
             session.add(bl)
+    session.commit()
+    return {"ok": True}
+
+@router.put("/{game_id}/batting/order")
+def set_batting_order(lines: List[BattingOrderUpdate], game: Game = Depends(get_active_game), session: Session = Depends(get_session)):
+    player_ids = [line.player_id for line in lines]
+    players = session.exec(select(Player).where(Player.id.in_(player_ids), Player.team_id == game.team_id)).all()
+    valid_player_ids = {p.id for p in players}
+
+    for line in lines:
+        if line.player_id not in valid_player_ids:
+            raise_api_error(400, "player_not_found", player_id=line.player_id)
+
+        existing = session.exec(
+            select(BattingLine).where(
+                BattingLine.game_id == game.id,
+                BattingLine.player_id == line.player_id
+            )
+        ).first()
+        if existing:
+            existing.batting_order = line.batting_order
+            session.add(existing)
+        else:
+            session.add(BattingLine(
+                game_id=game.id,
+                player_id=line.player_id,
+                batting_order=line.batting_order,
+            ))
     session.commit()
     return {"ok": True}
 
