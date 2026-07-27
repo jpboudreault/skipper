@@ -93,3 +93,48 @@ async def test_config_endpoint_public(client):
     assert "photo_ingestion_enabled" in data
     assert "google_client_id" in data
     assert "microsoft_client_id" in data
+
+
+@pytest.mark.asyncio
+async def test_batting_order_update_preserves_existing_stats(client, session):
+    first = await _make_player(client, jersey=21)
+    second = await _make_player(client, jersey=22)
+    game = await _make_game(client)
+
+    stats_res = await client.put(f"/games/{game['id']}/batting", json=[
+        {
+            "player_id": first["id"],
+            "batting_order": 1,
+            "singles": 2,
+            "doubles": 1,
+            "rbi": 3,
+            "r": 1,
+        },
+        {
+            "player_id": second["id"],
+            "batting_order": 2,
+            "bb": 1,
+            "sb": 2,
+        },
+    ])
+    assert stats_res.status_code == 200
+
+    order_res = await client.put(f"/games/{game['id']}/batting/order", json=[
+        {"player_id": second["id"], "batting_order": 1},
+        {"player_id": first["id"], "batting_order": 2},
+    ])
+    assert order_res.status_code == 200
+
+    get_res = await client.get(f"/games/{game['id']}/batting")
+    assert get_res.status_code == 200
+    lines = {line["player_id"]: line for line in get_res.json()}
+
+    assert lines[first["id"]]["batting_order"] == 2
+    assert lines[first["id"]]["singles"] == 2
+    assert lines[first["id"]]["doubles"] == 1
+    assert lines[first["id"]]["rbi"] == 3
+    assert lines[first["id"]]["r"] == 1
+
+    assert lines[second["id"]]["batting_order"] == 1
+    assert lines[second["id"]]["bb"] == 1
+    assert lines[second["id"]]["sb"] == 2
