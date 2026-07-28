@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 from datetime import date
-from typing import Dict, List, Optional, Set
+from typing import Any, Dict, List, Optional, Set
 
 from app.game_status import is_disrupted_schedule_status, normalize_schedule_status
 from app.models import Game
@@ -54,7 +54,33 @@ def _scores_from_score_dict(spordle_game: dict, our_team_id: int) -> tuple[Optio
     opp_runs = score.get(str(opp_id), score.get(opp_id))
     if our_runs is None or opp_runs is None:
         return None, None
-    return int(our_runs), int(opp_runs)
+    parsed_our_runs = _parse_score_value(our_runs)
+    parsed_opp_runs = _parse_score_value(opp_runs)
+    if parsed_our_runs is None or parsed_opp_runs is None:
+        return None, None
+    return parsed_our_runs, parsed_opp_runs
+
+
+def _parse_score_value(value: Any) -> Optional[int]:
+    if isinstance(value, bool):
+        return None
+    try:
+        return int(value)
+    except (TypeError, ValueError):
+        return None
+
+
+def _normalize_game_number(value: Any) -> Optional[str]:
+    if value is None:
+        return None
+    normalized = str(value).strip()
+    return normalized or None
+
+
+def _game_numbers_match(left: Any, right: Any) -> bool:
+    left_number = _normalize_game_number(left)
+    right_number = _normalize_game_number(right)
+    return left_number is not None and left_number == right_number
 
 
 def _schedule_notes(spordle_game: dict) -> Optional[str]:
@@ -74,7 +100,7 @@ def spordle_game_to_fields(spordle_game: dict, our_team_id: int, *, default_leag
 
     fields = {
         "date": spordle_game.get("date"),
-        "game_number": spordle_game.get("number"),
+        "game_number": _normalize_game_number(spordle_game.get("number")),
         "opponent": opponent_name(spordle_game, our_team_id),
         "home_away": "H" if is_home else "A",
         "external_source": "spordle",
@@ -200,8 +226,12 @@ def resolve_spordle_game(
     # Game number is unique per schedule per day, so it is the reliable key for
     # disambiguating double-headers (two games the same day, often vs the same
     # opponent).
-    if game.game_number:
-        numbered = [g for g in candidates if g.get("number") == game.game_number]
+    if _normalize_game_number(game.game_number):
+        numbered = [
+            g
+            for g in candidates
+            if _game_numbers_match(g.get("number"), game.game_number)
+        ]
         if len(numbered) == 1:
             return numbered[0]
         if numbered:
@@ -241,10 +271,10 @@ def pick_existing_game(
 
     # Exact game-number match is the strongest signal and distinguishes the
     # halves of a double-header, which share a date (and often an opponent).
-    number = spordle_game.get("number")
+    number = _normalize_game_number(spordle_game.get("number"))
     if number:
         for game in date_matches:
-            if game.game_number and game.game_number == number:
+            if _game_numbers_match(game.game_number, number):
                 return game
 
     # Only games not already linked to a *different* Spordle fixture can absorb
@@ -255,7 +285,14 @@ def pick_existing_game(
 
     # A game the user already numbered differently is also a distinct fixture.
     if number:
-        linkable = [g for g in linkable if not (g.game_number and g.game_number != number)]
+        linkable = [
+            g
+            for g in linkable
+            if not (
+                _normalize_game_number(g.game_number)
+                and not _game_numbers_match(g.game_number, number)
+            )
+        ]
 
     if our_team_id is not None:
         expected_opponent = normalize_team_label(opponent_name(spordle_game, our_team_id))
