@@ -78,6 +78,28 @@ def test_spordle_game_to_fields_score_dict_fallback():
     assert fields["result_runs_against"] == 3
 
 
+def test_spordle_game_to_fields_ignores_malformed_score_dict():
+    fields = spordle_game_to_fields(
+        {
+            "id": 900100,
+            "date": "2026-07-13",
+            "number": 126,
+            "homeTeamId": 167215,
+            "awayTeamId": 158339,
+            "homeTeam": {"id": 167215, "shortName": "DUCHESSES"},
+            "awayTeam": {"id": 158339, "shortName": "BRAVES"},
+            "status": "Active",
+            "teamStats": [],
+            "score": {"167215": "", "158339": 3},
+        },
+        167215,
+        default_league="LFBQ",
+    )
+    assert fields["game_number"] == "126"
+    assert "result_runs_for" not in fields
+    assert "result_runs_against" not in fields
+
+
 def test_pick_existing_game_matches_opponent_on_same_date():
     existing = [
         Game(
@@ -107,6 +129,30 @@ def test_pick_existing_game_matches_opponent_on_same_date():
     match = pick_existing_game(existing, spordle_game, our_team_id=167215)
     assert match is not None
     assert match.opponent == "BRAVES"
+
+
+def test_pick_existing_game_matches_numeric_spordle_number_to_stored_string():
+    existing = [
+        Game(
+            id=1,
+            team_id=1,
+            date=date(2026, 7, 17),
+            opponent="BRAVES",
+            game_number="130",
+        )
+    ]
+    spordle_game = {
+        "id": 880343,
+        "date": "2026-07-17",
+        "number": 130,
+        "homeTeamId": 167215,
+        "awayTeamId": 158339,
+        "homeTeam": {"id": 167215, "shortName": "DUCHESSES"},
+        "awayTeam": {"id": 158339, "shortName": "BRAVES"},
+    }
+    match = pick_existing_game(existing, spordle_game, our_team_id=167215)
+    assert match is not None
+    assert match.id == 1
 
 
 def test_pick_existing_game_does_not_clobber_other_linked_game_on_same_date():
@@ -225,6 +271,24 @@ def test_resolve_spordle_game_double_header_by_number():
     resolved = resolve_spordle_game(game, schedule, 167215)
     assert resolved is not None
     assert resolved["id"] == 900002
+
+
+def test_resolve_spordle_game_matches_numeric_number_to_stored_string():
+    schedule = [
+        {
+            "id": 900001,
+            "date": "2026-07-20",
+            "number": 130,
+            "homeTeamId": 167215,
+            "awayTeamId": 158339,
+            "homeTeam": {"id": 167215, "shortName": "DUCHESSES"},
+            "awayTeam": {"id": 158339, "shortName": "BRAVES"},
+        }
+    ]
+    game = Game(team_id=1, date=date(2026, 7, 20), opponent="BRAVES", game_number="130")
+    resolved = resolve_spordle_game(game, schedule, 167215)
+    assert resolved is not None
+    assert resolved["id"] == 900001
 
 
 def test_resolve_spordle_game_ambiguous_double_header_returns_none():
