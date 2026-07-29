@@ -9,6 +9,7 @@
 		splitGames,
 		gameResult,
 		homeAwayBadgeClass,
+		localDateIso,
 		resultBadgeClass,
 		scheduleStatusBadgeClass,
 		scheduleStatusLabelKey
@@ -25,7 +26,7 @@
 	let pitchingPlanData: any = $state(null);
 	let loadingPitching = $state(false);
 	let newGame = $state({
-		date: new Date().toISOString().split('T')[0],
+		date: localDateIso(),
 		game_number: '',
 		opponent: '',
 		venue: '',
