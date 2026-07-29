@@ -16,11 +16,23 @@ test('uses local calendar date for game defaults and upcoming split', async ({ c
 		const fixedNow = new Date('2026-06-29T01:30:00.000Z').valueOf();
 		const RealDate = Date;
 		class MockDate extends RealDate {
-			constructor(...args: any[]) {
+			constructor(...args: unknown[]) {
 				if (args.length === 0) {
 					super(fixedNow);
+				} else if (args.length === 1) {
+					const value = args[0];
+					super(value instanceof RealDate ? value.valueOf() : (value as string | number));
 				} else {
-					super(...(args as []));
+					const [year, month, day, hours, minutes, seconds, ms] = args as [
+						number,
+						number,
+						number?,
+						number?,
+						number?,
+						number?,
+						number?
+					];
+					super(year, month, day, hours, minutes, seconds, ms);
 				}
 			}
 
