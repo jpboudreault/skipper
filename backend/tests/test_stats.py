@@ -100,6 +100,48 @@ async def test_season_position(client: TestClient, session: Session):
 
 
 @pytest.mark.asyncio
+async def test_dashboard_includes_scored_disrupted_game_in_recent_history(
+    client: TestClient, session: Session
+):
+    team = Team(
+        name="Dashboard Team",
+        season="2026",
+        innings_per_game=5,
+        max_pitcher_innings_per_game=3,
+        pitch_count_rules_json="{}",
+    )
+    session.add(team)
+    session.commit()
+
+    player = Player(team_id=team.id, first_name="Clutch", last_name="Hitter", jersey=7)
+    session.add(player)
+    session.commit()
+
+    game = Game(
+        team_id=team.id,
+        date=date.today(),
+        opponent="Makeup Opponent",
+        result_runs_for=8,
+        result_runs_against=7,
+        schedule_status="postponed",
+        mode="compete",
+    )
+    session.add(game)
+    session.commit()
+
+    session.add(BattingLine(game_id=game.id, player_id=player.id, singles=1))
+    session.commit()
+
+    response = await client.get(f"/teams/{team.id}/stats/dashboard")
+
+    assert response.status_code == 200
+    data = response.json()
+    assert data["last_game"]["id"] == game.id
+    assert data["recent_batting"][0]["player_id"] == player.id
+    assert data["recent_batting"][0]["singles"] == 1
+
+
+@pytest.mark.asyncio
 async def test_pitching_plan_filters_coaches_and_subs(client: TestClient, session: Session):
     # 1. Create team
     team = Team(name="Plan Team", season="2026", innings_per_game=5, max_pitcher_innings_per_game=3, pitch_count_rules_json="{}")
