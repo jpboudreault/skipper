@@ -23,6 +23,14 @@ def _not_disrupted():
         Game.schedule_status.notin_(tuple(DISRUPTED_SCHEDULE_STATUSES)),
     )
 
+
+def _not_disrupted_or_scored():
+    """Completed games remain historical even if an external status is stale."""
+    return or_(
+        Game.result_runs_for.is_not(None),
+        _not_disrupted(),
+    )
+
 router = APIRouter(prefix="/teams/{team_id}/stats", tags=["stats"])
 
 @router.get("/batting")
@@ -59,7 +67,7 @@ def team_dashboard(team: Team = Depends(get_team_membership), session: Session =
         select(Game)
         .where(Game.team_id == team_id)
         .where(or_(Game.date < today, Game.result_runs_for.is_not(None)))
-        .where(_not_disrupted())
+        .where(_not_disrupted_or_scored())
         .order_by(Game.date.desc(), Game.id.desc())
         .limit(1)
     ).first()
@@ -70,7 +78,7 @@ def team_dashboard(team: Team = Depends(get_team_membership), session: Session =
         select(Game.id)
         .where(Game.team_id == team_id)
         .where(or_(Game.date < today, Game.result_runs_for.is_not(None)))
-        .where(_not_disrupted())
+        .where(_not_disrupted_or_scored())
         .order_by(Game.date.desc(), Game.id.desc())
         .limit(5)
     ).all()
