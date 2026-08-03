@@ -206,6 +206,9 @@
 
 			// Trigger reactivity
 			battingData = { ...battingData };
+			if (matched > 0) {
+				isDirty = true;
+			}
 			ingestSuccess = true;
 
 			// Auto-dismiss success after 6 seconds
