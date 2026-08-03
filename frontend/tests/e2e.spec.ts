@@ -1,4 +1,10 @@
-import { test, expect } from '@playwright/test';
+import { test, expect, type Page } from '@playwright/test';
+
+async function signIn(page: Page) {
+	await page
+		.context()
+		.addCookies([{ name: 'session', value: 'test-token', domain: 'localhost', path: '/' }]);
+}
 
 test('Login page shows Skipper branding', async ({ page }) => {
 	await page.goto('/login');
@@ -6,6 +12,8 @@ test('Login page shows Skipper branding', async ({ page }) => {
 });
 
 test('Lineup page has print button and printable card', async ({ page }) => {
+	await signIn(page);
+
 	await page.route('**/api/games/1', async (route) => {
 		const json = { id: 1, team_id: 1, date: '2026-05-28', mode: 'compete', game_type: 'season' };
 		await route.fulfill({ json });
@@ -40,9 +48,7 @@ test('Lineup page has print button and printable card', async ({ page }) => {
 });
 
 test('Batting OCR ingest warns before leaving unsaved parsed stats', async ({ page }) => {
-	await page
-		.context()
-		.addCookies([{ name: 'session', value: 'test-token', domain: 'localhost', path: '/' }]);
+	await signIn(page);
 
 	await page.route('**/api/teams/', async (route) => {
 		await route.fulfill({ json: [{ id: 1, name: 'Test Team', season: '2026' }] });
