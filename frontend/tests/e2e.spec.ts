@@ -40,6 +40,10 @@ test('Lineup page has print button and printable card', async ({ page }) => {
 });
 
 test('Batting OCR ingest warns before leaving unsaved parsed stats', async ({ page }) => {
+	await page
+		.context()
+		.addCookies([{ name: 'session', value: 'test-token', domain: 'localhost', path: '/' }]);
+
 	await page.route('**/api/teams/', async (route) => {
 		await route.fulfill({ json: [{ id: 1, name: 'Test Team', season: '2026' }] });
 	});
