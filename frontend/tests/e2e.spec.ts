@@ -90,12 +90,11 @@ test('Batting OCR ingest warns before leaving unsaved parsed stats', async ({ pa
 
 	await expect(page.getByText(/Scoresheet parsed|Feuille de match analysée/)).toBeVisible();
 
-	let dialogMessage = '';
-	page.once('dialog', async (dialog) => {
-		dialogMessage = dialog.message();
-		await dialog.dismiss();
-	});
-	await page.locator('a[href="/games/1/lineup"]').click();
-	expect(dialogMessage).toMatch(/unsaved changes|modifications non enregistrées/i);
+	const dialogPromise = page.waitForEvent('dialog');
+	const clickPromise = page.locator('a[href="/games/1/lineup"]').click();
+	const dialog = await dialogPromise;
+	expect(dialog.message()).toMatch(/unsaved changes|modifications non enregistrées/i);
+	await dialog.dismiss();
+	await clickPromise;
 	expect(page.url()).toMatch(/\/games\/1\/batting$/);
 });
