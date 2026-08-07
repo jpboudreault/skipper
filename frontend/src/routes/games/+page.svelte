@@ -13,7 +13,7 @@
 		scheduleStatusBadgeClass,
 		scheduleStatusLabelKey
 	} from '$lib/games';
-	import { activeTeam } from '$lib/teamContext';
+	import { activeTeam, waitForActiveTeamId } from '$lib/teamContext';
 
 	let games: any[] = $state([]);
 	let intelByGameId: Record<number, any> = $state({});
@@ -178,7 +178,7 @@
 
 		loadingPitching = true;
 		try {
-			const activeId = $activeTeam?.id;
+			const activeId = await waitForActiveTeamId();
 			if (!activeId) return;
 			const res = await apiFetch(`/teams/${activeId}/stats/pitching-plan`);
 			if (res.ok) {

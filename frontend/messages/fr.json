@@ -246,6 +246,7 @@
 	"lineup_injured_bench": "Banc",
 	"lineup_failed_save_batting_order": "Échec de l'enregistrement de l'ordre de frappe",
 	"lineup_failed_update_injury": "Échec de la mise à jour du statut de blessure",
+	"lineup_failed_save_snapshot": "Échec de l'enregistrement de l'alignement avant la création de l'instantané. Veuillez réessayer.",
 	"lineup_sub": "Sub",
 	"lineup_innings_label": "Manches",
 	"lineup_add_inning": "Ajouter une manche",

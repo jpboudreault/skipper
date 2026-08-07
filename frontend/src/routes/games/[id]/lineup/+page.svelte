@@ -167,7 +167,11 @@
 	}
 
 	async function saveSnapshot() {
-		await saveLineup();
+		const saved = await saveLineup();
+		if (!saved) {
+			alert(translate('lineup_failed_save_snapshot'));
+			return;
+		}
 		try {
 			const res = await apiFetch(`/games/${$page.params.id}/lineup/snapshots`, {
 				method: 'POST',
@@ -491,7 +495,7 @@
 		return lineup.some((l) => l.inning === inning && l.locked);
 	}
 
-	async function saveLineup() {
+	async function saveLineup(): Promise<boolean> {
 		autoSaving = true;
 		try {
 			const cells = lineup.map((l) => ({
@@ -500,13 +504,15 @@
 				position: l.position,
 				locked: l.locked || false
 			}));
-			await apiFetch(`/games/${$page.params.id}/lineup`, {
+			const res = await apiFetch(`/games/${$page.params.id}/lineup`, {
 				method: 'PUT',
 				headers: { 'Content-Type': 'application/json' },
 				body: JSON.stringify(cells)
 			});
+			return res.ok;
 		} catch (e) {
 			console.error(e);
+			return false;
 		} finally {
 			setTimeout(() => {
 				autoSaving = false;

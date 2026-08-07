@@ -246,6 +246,7 @@
 	"lineup_injured_bench": "Bench",
 	"lineup_failed_save_batting_order": "Failed to save batting order",
 	"lineup_failed_update_injury": "Failed to update injury status",
+	"lineup_failed_save_snapshot": "Failed to save lineup before creating the snapshot. Please try again.",
 	"lineup_sub": "Sub",
 	"lineup_innings_label": "Innings",
 	"lineup_add_inning": "Add inning",
