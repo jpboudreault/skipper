@@ -1,5 +1,6 @@
-from sqlmodel import Session, select
+from sqlmodel import Session, or_, select
 from typing import List, Dict, Any
+from app.game_status import DISRUPTED_SCHEDULE_STATUSES
 from app.models import BattingLine, PitchingAppearance, Lineup, Player, Game
 
 def get_season_batting(team_id: int, session: Session, game_ids: list = None) -> List[Dict[str, Any]]:
@@ -224,6 +225,12 @@ def get_pitching_plan(team_id: int, session: Session) -> Dict[str, Any]:
     games = session.exec(
         select(Game)
         .where(Game.team_id == team_id, Game.date >= start_date)
+        .where(
+            or_(
+                Game.schedule_status.is_(None),
+                Game.schedule_status.notin_(tuple(DISRUPTED_SCHEDULE_STATUSES)),
+            )
+        )
         .order_by(Game.date)
     ).all()
     

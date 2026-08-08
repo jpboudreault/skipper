@@ -129,3 +129,54 @@ async def test_pitching_plan_filters_coaches_and_subs(client: TestClient, sessio
     assert players[0]["id"] == p1.id
     assert players[0]["first_name"] == "Regular"
 
+
+@pytest.mark.asyncio
+async def test_pitching_plan_excludes_disrupted_games(client: TestClient, session: Session):
+    team = Team(
+        name="Plan Disrupted Team",
+        season="2026",
+        innings_per_game=5,
+        max_pitcher_innings_per_game=3,
+        pitch_count_rules_json="{}",
+    )
+    session.add(team)
+    session.commit()
+
+    pitcher = Player(
+        team_id=team.id,
+        first_name="Regular",
+        last_name="Pitcher",
+        jersey=10,
+        active=True,
+        is_substitute=False,
+        is_coach=False,
+    )
+    session.add(pitcher)
+    session.commit()
+
+    active_game = Game(team_id=team.id, date=date.today(), opponent="Active", mode="compete")
+    postponed_game = Game(
+        team_id=team.id,
+        date=date.today(),
+        opponent="Postponed",
+        mode="compete",
+        schedule_status="postponed",
+    )
+    session.add_all([active_game, postponed_game])
+    session.commit()
+
+    session.add_all(
+        [
+            Lineup(game_id=active_game.id, inning=1, player_id=pitcher.id, position=1),
+            Lineup(game_id=postponed_game.id, inning=1, player_id=pitcher.id, position=1),
+        ]
+    )
+    session.commit()
+
+    response = await client.get(f"/teams/{team.id}/stats/pitching-plan")
+
+    assert response.status_code == 200
+    data = response.json()
+    assert [game["id"] for game in data["games"]] == [active_game.id]
+    assert data["pitching_innings"][str(pitcher.id)] == {str(active_game.id): 1}
+
