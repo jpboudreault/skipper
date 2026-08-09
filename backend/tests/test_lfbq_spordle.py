@@ -24,7 +24,8 @@ from app.league_integrations.lfbq_spordle.mapping import (
     spordle_game_to_fields,
     is_disrupted_schedule_status,
 )
-from app.models import Game, Team
+from app.league_integrations.lfbq_spordle.sync import sync_team_schedule
+from app.models import Availability, Game, Player, Team
 
 FIXTURES = Path(__file__).parent / "fixtures" / "spordle"
 
@@ -954,6 +955,64 @@ async def test_sync_multiple_schedules_sets_game_type(client: AsyncClient, sessi
     postseason = [g for g in synced if g.get("game_type") == "postseason"]
     assert len(postseason) == 1
     assert postseason[0]["external_game_id"] == "910001"
+
+
+def test_sync_rolls_back_created_games_when_later_schedule_fetch_fails(session):
+    team = session.get(Team, 1)
+    team.integration_version = "lfbq_spordle"
+    team.integration_config_json = json.dumps(
+        {
+            "our_spordle_team_id": 167495,
+            "schedules": [
+                {"schedule_id": 193095, "game_type": "season"},
+                {"schedule_id": 195112, "game_type": "postseason"},
+            ],
+        }
+    )
+    session.add(team)
+    session.add(Player(team_id=team.id, first_name="Regular", last_name="Player", jersey=10))
+    session.add(
+        Player(
+            team_id=team.id,
+            first_name="Sub",
+            last_name="Player",
+            jersey=11,
+            is_substitute=True,
+        )
+    )
+    session.commit()
+
+    season_game = {
+        "id": 950001,
+        "date": "2026-06-01",
+        "scheduleId": 193095,
+        "number": "S1",
+        "homeTeamId": 167495,
+        "awayTeamId": 162670,
+        "homeTeam": {"id": 167495, "name": "BLUE EXPOS"},
+        "awayTeam": {"id": 162670, "name": "RIVAL STARS"},
+        "teamStats": [],
+    }
+
+    def fail_second_schedule(schedule_id: int, **_kwargs):
+        if schedule_id == 193095:
+            return [season_game]
+        raise RuntimeError("spordle unavailable")
+
+    with patch(
+        "app.league_integrations.lfbq_spordle.sync._client.get_schedule_games",
+        side_effect=fail_second_schedule,
+    ), pytest.raises(RuntimeError):
+        sync_team_schedule(session, team)
+
+    session.rollback()
+
+    orphaned_game = session.exec(
+        select(Game).where(Game.external_game_id == "950001")
+    ).first()
+    seeded_availability = session.exec(select(Availability)).all()
+    assert orphaned_game is None
+    assert seeded_availability == []
 
 
 @pytest.mark.asyncio

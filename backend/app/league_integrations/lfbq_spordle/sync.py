@@ -97,8 +97,7 @@ def sync_team_schedule(session: Session, team: Team) -> dict:
 
             game = Game(team_id=team.id, game_type=schedule["game_type"], **fields)
             session.add(game)
-            session.commit()
-            session.refresh(game)
+            session.flush()
             _seed_availability(session, game.id, team.id)
             existing_games.append(game)
             created += 1
