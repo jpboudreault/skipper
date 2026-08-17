@@ -200,6 +200,7 @@
 	"lineup_tap_move_down": "Descendre dans l'ordre de frappe",
 	"lineup_saving": "Enregistrement...",
 	"lineup_saved": "Enregistré",
+	"lineup_save_failed": "Échec de l'enregistrement",
 	"lineup_injury_mode": "Mode blessure",
 	"lineup_exit_injury_mode": "Quitter le mode blessure",
 	"lineup_print_lineup": "Imprimer l'alignement",

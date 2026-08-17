@@ -66,6 +66,14 @@ def _schedule_notes(spordle_game: dict) -> Optional[str]:
     return None
 
 
+def _opponent_matches(game_opponent: str | None, spordle_game: dict, our_team_id: int) -> bool:
+    expected = normalize_team_label(game_opponent)
+    if not expected or expected == "TBD":
+        return False
+    actual = normalize_team_label(opponent_name(spordle_game, our_team_id))
+    return expected == actual or expected in actual or actual in expected
+
+
 def spordle_game_to_fields(spordle_game: dict, our_team_id: int, *, default_league: Optional[str]) -> dict:
     home_id = spordle_game.get("homeTeamId")
     is_home = home_id == our_team_id
@@ -92,14 +100,15 @@ def spordle_game_to_fields(spordle_game: dict, our_team_id: int, *, default_leag
     if notes:
         fields["notes"] = notes
 
-    if stat and stat.get("gameResult"):
-        fields["result_runs_for"] = stat.get("goalFor")
-        fields["result_runs_against"] = stat.get("goalAgainst")
-    elif not is_disrupted_schedule_status(schedule_status):
-        runs_for, runs_against = _scores_from_score_dict(spordle_game, our_team_id)
-        if runs_for is not None and runs_against is not None:
-            fields["result_runs_for"] = runs_for
-            fields["result_runs_against"] = runs_against
+    if not is_disrupted_schedule_status(schedule_status):
+        if stat and stat.get("gameResult"):
+            fields["result_runs_for"] = stat.get("goalFor")
+            fields["result_runs_against"] = stat.get("goalAgainst")
+        else:
+            runs_for, runs_against = _scores_from_score_dict(spordle_game, our_team_id)
+            if runs_for is not None and runs_against is not None:
+                fields["result_runs_for"] = runs_for
+                fields["result_runs_against"] = runs_against
 
     return fields
 
@@ -208,15 +217,14 @@ def resolve_spordle_game(
             candidates = numbered
 
     if game.opponent:
-        expected_opponent = normalize_team_label(game.opponent)
         name_matches = [
-            g for g in candidates if normalize_team_label(opponent_name(g, our_team_id)) == expected_opponent
+            g for g in candidates if _opponent_matches(game.opponent, g, our_team_id)
         ]
         if len(name_matches) == 1:
             return name_matches[0]
 
     if len(candidates) == 1:
-        return candidates[0]
+        return candidates[0] if _opponent_matches(game.opponent, candidates[0], our_team_id) else None
 
     # Still ambiguous (e.g. an unlinked double-header vs the same opponent):
     # don't guess, so we never link a game to the wrong Spordle fixture.

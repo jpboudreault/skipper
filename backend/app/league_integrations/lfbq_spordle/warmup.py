@@ -20,14 +20,23 @@ from app.models import Game, Team
 _client = SpordleClient()
 
 
-def _link_game_to_spordle(game: Game, schedule_games: list, our_team_id: int) -> bool:
+def _link_game_to_spordle(
+    game: Game,
+    schedule_games: list,
+    our_team_id: int,
+    claimed_external_ids: set[str],
+) -> bool:
     if game.external_game_id:
         return False
     spordle_game = resolve_spordle_game(game, schedule_games, our_team_id)
     if spordle_game is None:
         return False
+    external_id = str(spordle_game["id"])
+    if external_id in claimed_external_ids:
+        return False
     game.external_source = "spordle"
-    game.external_game_id = str(spordle_game["id"])
+    game.external_game_id = external_id
+    claimed_external_ids.add(external_id)
     return True
 
 
@@ -59,6 +68,11 @@ def warmup_team_dashboard(session: Session, team: Team, *, limit: int = 3) -> di
     ][:limit]
 
     linked = 0
+    claimed_external_ids = {
+        game.external_game_id
+        for game in session.exec(select(Game).where(Game.team_id == team.id)).all()
+        if game.external_game_id
+    }
     for game in upcoming:
         if game.external_game_id:
             continue
@@ -67,7 +81,7 @@ def warmup_team_dashboard(session: Session, team: Team, *, limit: int = 3) -> di
                 schedule["schedule_id"],
                 cache_ttl_seconds=cache_ttl_seconds,
             )
-            if _link_game_to_spordle(game, schedule_games, our_team_id):
+            if _link_game_to_spordle(game, schedule_games, our_team_id, claimed_external_ids):
                 session.add(game)
                 linked += 1
                 break

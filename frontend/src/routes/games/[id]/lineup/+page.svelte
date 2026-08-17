@@ -24,6 +24,7 @@
 	let applyingOption = $state(false);
 	let savingOrder = $state(false);
 	let autoSaving = $state(false);
+	let lineupSaveError = $state('');
 	let injuryMode = $state(false);
 	let changingInnings = $state(false);
 	let printTarget: 'lineup' | 'defense' | null = $state(null);
@@ -167,7 +168,7 @@
 	}
 
 	async function saveSnapshot() {
-		await saveLineup();
+		if (!(await saveLineup())) return;
 		try {
 			const res = await apiFetch(`/games/${$page.params.id}/lineup/snapshots`, {
 				method: 'POST',
@@ -221,9 +222,12 @@
 	let availablePlayerIds = $derived(new Set(getAvailablePlayers().map((p) => p.id)));
 	let hasUnlockedValues = $derived(lineup.some((cell) => !cell.locked));
 
-	function clearUnlocked() {
+	async function clearUnlocked() {
+		const previousLineup = lineup;
 		lineup = lineup.filter((cell) => cell.locked);
-		saveLineup();
+		if (!(await saveLineup())) {
+			lineup = previousLineup;
+		}
 	}
 
 	function initBattingOrder() {
@@ -491,8 +495,22 @@
 		return lineup.some((l) => l.inning === inning && l.locked);
 	}
 
-	async function saveLineup() {
+	async function responseDetail(res: Response): Promise<string> {
+		try {
+			const payload = await res.json();
+			return payload.detail || `${res.status} ${res.statusText}`;
+		} catch {
+			return `${res.status} ${res.statusText}`;
+		}
+	}
+
+	function markLineupSaveFailed(message: string) {
+		lineupSaveError = translate('lineup_error_prefix', { message });
+	}
+
+	async function saveLineup(): Promise<boolean> {
 		autoSaving = true;
+		lineupSaveError = '';
 		try {
 			const cells = lineup.map((l) => ({
 				inning: l.inning,
@@ -500,13 +518,20 @@
 				position: l.position,
 				locked: l.locked || false
 			}));
-			await apiFetch(`/games/${$page.params.id}/lineup`, {
+			const res = await apiFetch(`/games/${$page.params.id}/lineup`, {
 				method: 'PUT',
 				headers: { 'Content-Type': 'application/json' },
 				body: JSON.stringify(cells)
 			});
-		} catch (e) {
+			if (!res.ok) {
+				markLineupSaveFailed(await responseDetail(res));
+				return false;
+			}
+			return true;
+		} catch (e: any) {
 			console.error(e);
+			markLineupSaveFailed(e.message || translate('lineup_save_failed'));
+			return false;
 		} finally {
 			setTimeout(() => {
 				autoSaving = false;
@@ -525,7 +550,12 @@
 		solveIsError = false;
 		showSolveOptions = false;
 		solveOptions = [];
-		await saveLineup();
+		if (!(await saveLineup())) {
+			solveIsError = true;
+			solveStatus = lineupSaveError || translate('lineup_save_failed');
+			solving = false;
+			return;
+		}
 		try {
 			const res = await apiFetch(`/games/${$page.params.id}/solve`, {
 				method: 'POST',
@@ -690,6 +720,10 @@
 				{#if autoSaving}
 					<span class="loading loading-spinner loading-xs text-primary mr-2"></span>
 					<span class="text-base-content/60 mr-2 text-xs">{$t('lineup_saving')}</span>
+				{:else if lineupSaveError}
+					<span class="badge badge-error badge-outline mr-2 gap-1" title={lineupSaveError}>
+						! {$t('lineup_save_failed')}
+					</span>
 				{:else}
 					<span class="badge badge-success badge-outline mr-2 gap-1">
 						✓ {$t('lineup_saved')}

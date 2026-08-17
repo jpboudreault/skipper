@@ -57,6 +57,30 @@ def test_spordle_game_to_fields_postponed_status():
     assert is_disrupted_schedule_status(fields["schedule_status"])
 
 
+def test_spordle_game_to_fields_disrupted_status_ignores_teamstats_result():
+    fields = spordle_game_to_fields(
+        {
+            "id": 829374,
+            "date": "2026-07-18",
+            "number": "13UB-0131",
+            "homeTeamId": 167215,
+            "awayTeamId": 170000,
+            "homeTeam": {"id": 167215, "shortName": "DUCHESSES"},
+            "awayTeam": {"id": 170000, "shortName": "PHÉNIX"},
+            "status": "Cancelled",
+            "teamStats": [
+                {"teamId": 167215, "goalFor": 5, "goalAgainst": 2, "gameResult": "win"},
+                {"teamId": 170000, "goalFor": 2, "goalAgainst": 5, "gameResult": "loss"},
+            ],
+        },
+        167215,
+        default_league="LFBQ",
+    )
+    assert fields["schedule_status"] == "cancelled"
+    assert "result_runs_for" not in fields
+    assert "result_runs_against" not in fields
+
+
 def test_spordle_game_to_fields_score_dict_fallback():
     fields = spordle_game_to_fields(
         {
@@ -710,6 +734,36 @@ def test_resolve_spordle_game_by_date():
     assert resolved["id"] == 900001
 
 
+def test_resolve_spordle_game_single_candidate_rejects_placeholder_opponent():
+    schedule = [
+        {
+            "id": 900001,
+            "date": "2026-06-01",
+            "number": "F1",
+            "homeTeamId": 167495,
+            "awayTeamId": 162670,
+            "homeTeam": {"id": 167495, "shortName": "EXPOS"},
+            "awayTeam": {"id": 162670, "shortName": "RIVAL STARS"},
+        }
+    ]
+    assert (
+        resolve_spordle_game(
+            Game(team_id=1, date=date(2026, 6, 1), opponent="TBD", mode="compete"),
+            schedule,
+            167495,
+        )
+        is None
+    )
+    assert (
+        resolve_spordle_game(
+            Game(team_id=1, date=date(2026, 6, 1), opponent=None, mode="compete"),
+            schedule,
+            167495,
+        )
+        is None
+    )
+
+
 def test_resolve_opponent_by_name():
     games = load_fixture("schedule_games.json")
     game = Game(
@@ -898,6 +952,65 @@ async def test_dashboard_warmup_links_and_prefetches(client: AsyncClient, sessio
 
     linked = await client.get(f"/games/{game_id}")
     assert linked.json()["external_game_id"] == "900001"
+
+
+@pytest.mark.asyncio
+async def test_dashboard_warmup_does_not_link_one_spordle_game_to_two_games(
+    client: AsyncClient, session
+):
+    team = session.get(Team, 1)
+    team.integration_version = "lfbq_spordle"
+    team.integration_config_json = json.dumps(
+        {"schedule_id": 193093, "our_spordle_team_id": 167215}
+    )
+    session.add(team)
+    session.commit()
+
+    tbd_res = await client.post(
+        "/games/",
+        json={"date": "2026-07-17", "opponent": "TBD", "mode": "compete"},
+    )
+    braves_res = await client.post(
+        "/games/",
+        json={"date": "2026-07-17", "opponent": "BRAVES", "mode": "compete"},
+    )
+    assert tbd_res.status_code == 200
+    assert braves_res.status_code == 200
+    tbd_id = tbd_res.json()["id"]
+    braves_id = braves_res.json()["id"]
+
+    schedule = [
+        {
+            "id": 880343,
+            "date": "2026-07-17",
+            "number": "F18",
+            "homeTeamId": 167215,
+            "awayTeamId": 158339,
+            "homeTeam": {"id": 167215, "shortName": "DUCHESSES"},
+            "awayTeam": {"id": 158339, "shortName": "BRAVES"},
+            "status": "Active",
+            "teamStats": [],
+        }
+    ]
+
+    with patch("app.league_integrations.lfbq_spordle.warmup.date") as mock_date, patch(
+        "app.league_integrations.lfbq_spordle.warmup._client.get_schedule_games",
+        return_value=schedule,
+    ), patch(
+        "app.league_integrations.lfbq_spordle.intel._client.get_schedule_games",
+        return_value=schedule,
+    ):
+        mock_date.today.return_value = date(2026, 7, 1)
+        res = await client.post(f"/teams/{team.id}/stats/dashboard/warmup")
+
+    assert res.status_code == 200
+    assert res.json()["linked"] == 1
+
+    games = (await client.get("/games/")).json()
+    linked = [g for g in games if g.get("external_game_id") == "880343"]
+    assert [g["id"] for g in linked] == [braves_id]
+    tbd = next(g for g in games if g["id"] == tbd_id)
+    assert tbd.get("external_game_id") is None
 
 
 PLAYOFF_GAME = {
