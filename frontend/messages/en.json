@@ -200,6 +200,7 @@
 	"lineup_tap_move_down": "Move down in batting order",
 	"lineup_saving": "Saving...",
 	"lineup_saved": "Saved",
+	"lineup_save_failed": "Save failed",
 	"lineup_injury_mode": "Injury Mode",
 	"lineup_exit_injury_mode": "Exit Injury Mode",
 	"lineup_print_lineup": "Print Lineup",
