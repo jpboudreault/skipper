@@ -293,7 +293,20 @@
 	}
 
 	// --- Touch drag events (mobile) ---
+	function isInteractiveTouchTarget(target: EventTarget | null): boolean {
+		return (
+			target instanceof Element && target.closest('button, a, input, select, textarea') !== null
+		);
+	}
+
 	function handleTouchStart(e: TouchEvent, index: number) {
+		if (isInteractiveTouchTarget(e.target)) {
+			dragIndex = null;
+			dragOverIndex = null;
+			touchCurrentIndex = null;
+			return;
+		}
+
 		const touch = e.touches[0];
 		dragIndex = index;
 
@@ -315,6 +328,8 @@
 	}
 
 	function handleTouchMove(e: TouchEvent) {
+		if (dragIndex === null) return;
+
 		e.preventDefault();
 		const touch = e.touches[0];
 
@@ -864,9 +879,7 @@
 							<table class="table-sm table-pin-rows table-pin-cols table w-full">
 								<thead class="bg-base-200">
 									<tr>
-										<th
-											class="bg-base-300 text-base-content sticky left-0 z-20 w-48 font-bold"
-										>
+										<th class="bg-base-300 text-base-content sticky left-0 z-20 w-48 font-bold">
 											{$t('lineup_order_player')}
 										</th>
 										{#each Array(numInnings) as _, inn}
@@ -883,10 +896,7 @@
 									{#each battingOrder as playerId}
 										{@const player = getPlayer(playerId)}
 										{#if player}
-											{@const benchCount = getOptionBenchCount(
-												activeOption.assignments,
-												player.id
-											)}
+											{@const benchCount = getOptionBenchCount(activeOption.assignments, player.id)}
 											<tr class="hover:bg-base-200/50">
 												<td
 													class="bg-base-100 text-base-content border-base-300 sticky left-0 z-10 border-r font-medium"
@@ -1051,9 +1061,8 @@
 												ontouchend={handleTouchEnd}
 											>
 												<!-- Drag handle -->
-												<span
-													class="text-base-content/40 flex-shrink-0 text-lg"
-													aria-hidden="true">⠿</span
+												<span class="text-base-content/40 flex-shrink-0 text-lg" aria-hidden="true"
+													>⠿</span
 												>
 												<!-- Player info -->
 												<span class="text-base-content/50 w-6 flex-shrink-0 text-right text-xs"
