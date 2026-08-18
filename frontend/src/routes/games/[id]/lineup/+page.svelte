@@ -293,7 +293,18 @@
 	}
 
 	// --- Touch drag events (mobile) ---
+	function isInteractiveTouchTarget(target: EventTarget | null): boolean {
+		return target instanceof Element && target.closest('button, a, input, select, textarea') !== null;
+	}
+
 	function handleTouchStart(e: TouchEvent, index: number) {
+		if (isInteractiveTouchTarget(e.target)) {
+			dragIndex = null;
+			dragOverIndex = null;
+			touchCurrentIndex = null;
+			return;
+		}
+
 		const touch = e.touches[0];
 		dragIndex = index;
 
@@ -315,6 +326,8 @@
 	}
 
 	function handleTouchMove(e: TouchEvent) {
+		if (dragIndex === null) return;
+
 		e.preventDefault();
 		const touch = e.touches[0];
 
