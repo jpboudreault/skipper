@@ -31,6 +31,37 @@ def _link_game_to_spordle(game: Game, schedule_games: list, our_team_id: int) ->
     return True
 
 
+def _playable_upcoming_games(session: Session, team: Team, *, today: date, limit: int) -> list[Game]:
+    if limit <= 0:
+        return []
+
+    upcoming: list[Game] = []
+    offset = 0
+    batch_size = max(limit * 2, 1)
+    while len(upcoming) < limit:
+        rows = session.exec(
+            select(Game)
+            .where(Game.team_id == team.id)
+            .where(Game.date >= today)
+            .where(Game.result_runs_for.is_(None))
+            .order_by(Game.date.asc(), Game.id.asc())
+            .offset(offset)
+            .limit(batch_size)
+        ).all()
+        if not rows:
+            break
+        for game in rows:
+            if is_disrupted_schedule_status(game.schedule_status):
+                continue
+            upcoming.append(game)
+            if len(upcoming) >= limit:
+                break
+        offset += len(rows)
+        if len(rows) < batch_size:
+            break
+    return upcoming
+
+
 def warmup_team_dashboard(session: Session, team: Team, *, limit: int = 3) -> dict:
     if team.integration_version != "lfbq_spordle":
         return {"ok": False, "reason": "integration_not_configured"}
@@ -45,18 +76,7 @@ def warmup_team_dashboard(session: Session, team: Team, *, limit: int = 3) -> di
     cache_ttl_seconds = int(cache_ttl_hours * 3600)
 
     today = date.today()
-    upcoming = [
-        game
-        for game in session.exec(
-            select(Game)
-            .where(Game.team_id == team.id)
-            .where(Game.date >= today)
-            .where(Game.result_runs_for.is_(None))
-            .order_by(Game.date.asc(), Game.id.asc())
-            .limit(limit * 2)
-        ).all()
-        if not is_disrupted_schedule_status(game.schedule_status)
-    ][:limit]
+    upcoming = _playable_upcoming_games(session, team, today=today, limit=limit)
 
     linked = 0
     for game in upcoming:

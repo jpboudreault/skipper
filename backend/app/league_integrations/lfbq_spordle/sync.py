@@ -40,6 +40,8 @@ def _apply_spordle_fields(game: Game, fields: dict) -> None:
     for key, value in fields.items():
         if value is None:
             continue
+        if key == "notes" and getattr(game, key):
+            continue
         if key in ("result_runs_for", "result_runs_against"):
             if getattr(game, key) is None:
                 setattr(game, key, value)
