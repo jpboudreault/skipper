@@ -862,6 +862,54 @@ async def test_sync_schedule_preserves_game_mode(client: AsyncClient, session):
 
 
 @pytest.mark.asyncio
+async def test_sync_schedule_preserves_existing_game_notes(client: AsyncClient, session):
+    team = session.get(Team, 1)
+    team.integration_version = "lfbq_spordle"
+    team.integration_config_json = json.dumps(
+        {"schedule_id": 193095, "our_spordle_team_id": 167495}
+    )
+    session.add(team)
+    session.commit()
+
+    game_res = await client.post(
+        "/games/",
+        json={
+            "date": "2026-06-01",
+            "opponent": "Rival Stars",
+            "mode": "compete",
+            "notes": "Bring the printed lineup cards.",
+        },
+    )
+    assert game_res.status_code == 200
+    game_id = game_res.json()["id"]
+
+    spordle_game = {
+        "id": 900001,
+        "date": "2026-06-01",
+        "number": "L1",
+        "homeTeamId": 167495,
+        "awayTeamId": 162670,
+        "homeTeam": {"id": 167495, "name": "BLUE EXPOS"},
+        "awayTeam": {"id": 162670, "name": "Rival Stars"},
+        "status": "Active",
+        "comments": "Spordle schedule note",
+        "teamStats": [],
+    }
+
+    with patch(
+        "app.league_integrations.lfbq_spordle.sync._client.get_schedule_games",
+        return_value=[spordle_game],
+    ):
+        res = await client.post("/games/sync-schedule")
+
+    assert res.status_code == 200
+    updated = await client.get(f"/games/{game_id}")
+    payload = updated.json()
+    assert payload["external_game_id"] == "900001"
+    assert payload["notes"] == "Bring the printed lineup cards."
+
+
+@pytest.mark.asyncio
 async def test_dashboard_warmup_links_and_prefetches(client: AsyncClient, session):
     team = session.get(Team, 1)
     team.integration_version = "lfbq_spordle"
@@ -897,6 +945,67 @@ async def test_dashboard_warmup_links_and_prefetches(client: AsyncClient, sessio
     assert payload["intel_prefetched"] == 1
 
     linked = await client.get(f"/games/{game_id}")
+    assert linked.json()["external_game_id"] == "900001"
+
+
+@pytest.mark.asyncio
+async def test_dashboard_warmup_scans_past_disrupted_prefix(client: AsyncClient, session):
+    team = session.get(Team, 1)
+    team.integration_version = "lfbq_spordle"
+    team.integration_config_json = json.dumps(
+        {"schedule_id": 193095, "our_spordle_team_id": 167495}
+    )
+    session.add(team)
+    session.commit()
+
+    for day in range(1, 7):
+        session.add(
+            Game(
+                team_id=team.id,
+                date=date(2026, 5, day),
+                opponent=f"Postponed {day}",
+                schedule_status="postponed",
+            )
+        )
+    playable = Game(
+        team_id=team.id,
+        date=date(2026, 5, 7),
+        opponent="Rival Stars",
+    )
+    session.add(playable)
+    session.commit()
+    session.refresh(playable)
+
+    spordle_game = {
+        "id": 900001,
+        "date": "2026-05-07",
+        "number": "L1",
+        "homeTeamId": 167495,
+        "awayTeamId": 162670,
+        "homeTeam": {"id": 167495, "name": "BLUE EXPOS"},
+        "awayTeam": {"id": 162670, "name": "Rival Stars"},
+        "status": "Active",
+        "teamStats": [],
+    }
+
+    with patch(
+        "app.league_integrations.lfbq_spordle.warmup.date"
+    ) as mock_date, patch(
+        "app.league_integrations.lfbq_spordle.warmup._client.get_schedule_games",
+        return_value=[spordle_game],
+    ), patch(
+        "app.league_integrations.lfbq_spordle.intel._client.get_schedule_games",
+        return_value=[spordle_game],
+    ):
+        mock_date.today.return_value = date(2026, 5, 1)
+        res = await client.post(f"/teams/{team.id}/stats/dashboard/warmup")
+
+    payload = res.json()
+    assert res.status_code == 200
+    assert payload["linked"] == 1
+    assert payload["upcoming_games"] == 1
+
+    linked = await client.get(f"/games/{playable.id}")
     assert linked.json()["external_game_id"] == "900001"
 
 
