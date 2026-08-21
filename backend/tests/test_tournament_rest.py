@@ -127,6 +127,28 @@ def test_same_day_pitches_summed(session):
     assert result.pitches_today == 90
 
 
+def test_missing_tournament_pitch_count_blocks_eligibility(session):
+    team = make_team(session)
+    player = make_player(session, team)
+    today = date(2026, 6, 15)
+    game = make_game(session, team, today - timedelta(days=1))
+    session.add(
+        PitchingAppearance(
+            game_id=game.id,
+            player_id=player.id,
+            inning_entered=1,
+            inning_exited=3,
+            ip_outs=6,
+            pitch_count=None,
+        )
+    )
+    session.commit()
+
+    result = get_pitcher_eligibility(player.id, today, "tournament", team, session)
+    assert result.eligible is False
+    assert "Missing tournament pitch count" in result.reason
+
+
 def test_no_rules_assumes_eligible(session):
     team = make_team(session, rules={})
     player = make_player(session, team)

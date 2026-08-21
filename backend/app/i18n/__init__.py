@@ -78,6 +78,7 @@ MESSAGES: dict[str, dict[str, str]] = {
         "invalid_game_mode": "Invalid optimizer mode '{mode}'. Use compete, develop, or optimal.",
         "solve_apply_not_needed": "Optimal mode applies the lineup automatically; no apply step needed.",
         "empty_lineup_assignments": "No lineup assignments provided.",
+        "pitch_count_required_for_tournament": "Pitch count is required for tournament pitching appearances.",
     },
     "fr": {
         "internal_server_error": "Erreur interne du serveur",
@@ -126,6 +127,7 @@ MESSAGES: dict[str, dict[str, str]] = {
         "invalid_game_mode": "Mode d'optimisation invalide « {mode} ». Utilisez compete, develop ou optimal.",
         "solve_apply_not_needed": "Le mode optimal applique l'alignement automatiquement.",
         "empty_lineup_assignments": "Aucune affectation d'alignement fournie.",
+        "pitch_count_required_for_tournament": "Le nombre de lancers est requis pour les apparitions comme lanceur en tournoi.",
     },
 }
 

@@ -1,6 +1,17 @@
 """HTTP tests for previously-uncovered game endpoints: pitching CRUD, injury,
 pitcher-status, and the public /config endpoint."""
+import json
+
 import pytest
+from app.models import Team
+
+PITCH_RULES = {
+    "max_pitches_per_day": 85,
+    "rest_requirements": [
+        {"min_pitches": 1, "max_pitches": 20, "days_rest": 0},
+        {"min_pitches": 21, "max_pitches": 35, "days_rest": 1},
+    ],
+}
 
 
 async def _make_player(client, jersey=7, **kwargs):
@@ -53,6 +64,27 @@ async def test_pitching_rejects_unknown_player(client, session):
         "ip_outs": 3,
     }])
     assert res.status_code == 400
+
+
+@pytest.mark.asyncio
+async def test_tournament_pitching_requires_pitch_count(client, session):
+    team = session.get(Team, 1)
+    team.pitch_count_rules_json = json.dumps(PITCH_RULES)
+    session.add(team)
+    session.commit()
+
+    player = await _make_player(client, jersey=14)
+    game = await _make_game(client, game_type="tournament")
+
+    res = await client.put(f"/games/{game['id']}/pitching", json=[{
+        "player_id": player["id"],
+        "inning_entered": 1,
+        "inning_exited": 3,
+        "ip_outs": 6,
+        "pitch_count": None,
+    }])
+    assert res.status_code == 400
+    assert "Pitch count is required" in res.json()["detail"]
 
 
 @pytest.mark.asyncio
