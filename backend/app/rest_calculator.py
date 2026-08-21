@@ -57,6 +57,13 @@ def get_pitcher_eligibility(
         return PitcherEligibility(eligible=True, reason="Unknown game type, assuming eligible")
 
 
+def tournament_pitch_count_rules_configured(team: Team) -> bool:
+    rules = _parse_pitch_count_rules(team)
+    return rules.get("max_pitches_per_day") is not None or bool(
+        rules.get("rest_requirements") or []
+    )
+
+
 def _check_innings_based(
     player_id: int,
     game_date: date,
@@ -183,7 +190,7 @@ def _check_pitch_count_based(
     max_per_day = rules.get("max_pitches_per_day")
     rest_requirements = rules.get("rest_requirements", []) or []
 
-    if max_per_day is None and not rest_requirements:
+    if not tournament_pitch_count_rules_configured(team):
         return PitcherEligibility(
             eligible=True,
             reason="No tournament pitch-count rules configured, assuming eligible",
@@ -202,6 +209,7 @@ def _check_pitch_count_based(
     ).all()
 
     pitches_by_date: Dict[date, int] = {}
+    missing_pitch_count_dates: set[date] = set()
     for game in games_in_window:
         if exclude_game_id and game.id == exclude_game_id:
             continue
@@ -211,7 +219,12 @@ def _check_pitch_count_based(
                 PitchingAppearance.player_id == player_id,
             )
         ).all()
-        thrown = sum((app.pitch_count or 0) for app in appearances)
+        thrown = 0
+        for app in appearances:
+            if app.pitch_count is None and app.ip_outs > 0:
+                missing_pitch_count_dates.add(game.date)
+                continue
+            thrown += app.pitch_count or 0
         if thrown:
             pitches_by_date[game.date] = pitches_by_date.get(game.date, 0) + thrown
 
@@ -219,6 +232,15 @@ def _check_pitch_count_based(
     remaining_pitches_today = (
         max(0, max_per_day - pitches_today) if max_per_day is not None else None
     )
+
+    if missing_pitch_count_dates:
+        dates = ", ".join(d.isoformat() for d in sorted(missing_pitch_count_dates))
+        return PitcherEligibility(
+            eligible=False,
+            reason=f"Missing tournament pitch count for prior pitching appearance on {dates}",
+            pitches_today=pitches_today,
+            remaining_pitches_today=remaining_pitches_today,
+        )
 
     # Daily cap: already maxed out for today.
     if max_per_day is not None and pitches_today >= max_per_day:

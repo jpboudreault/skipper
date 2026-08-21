@@ -7,7 +7,7 @@ from app.models import (
     Lineup, Player, Team
 )
 from app.optimizer import solve_lineup_options, OptimizerConfig, LockedCell, GAME_MODES
-from app.rest_calculator import get_pitcher_eligibility
+from app.rest_calculator import get_pitcher_eligibility, tournament_pitch_count_rules_configured
 from app.lineup_service import (
     get_available_players,
     load_position_scores,
@@ -395,10 +395,20 @@ def set_pitching(appearances: List[PitchingAppearanceCreate], game: Game = Depen
     player_ids = [app.player_id for app in appearances]
     players = session.exec(select(Player).where(Player.id.in_(player_ids), Player.team_id == game.team_id)).all()
     valid_player_ids = {p.id for p in players}
+    team = session.get(Team, game.team_id)
+    if not team:
+        raise_api_error(404, "team_not_found")
 
     for app in appearances:
         if app.player_id not in valid_player_ids:
             raise_api_error(400, "player_not_found", player_id=app.player_id)
+        if (
+            game.game_type == "tournament"
+            and tournament_pitch_count_rules_configured(team)
+            and app.ip_outs > 0
+            and app.pitch_count is None
+        ):
+            raise_api_error(400, "pitch_count_required_for_tournament")
 
     # Delete existing appearances for this game and re-insert
     existing = session.exec(select(PitchingAppearance).where(PitchingAppearance.game_id == game.id)).all()
