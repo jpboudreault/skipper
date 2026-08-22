@@ -1,6 +1,9 @@
 import { test, expect } from '@playwright/test';
 
 test('French nav labels when locale is fr', async ({ page }) => {
+	await page
+		.context()
+		.addCookies([{ name: 'session', value: 'test-token', domain: 'localhost', path: '/' }]);
 	await page.addInitScript(() => {
 		localStorage.setItem('skipper-locale', 'fr');
 	});
