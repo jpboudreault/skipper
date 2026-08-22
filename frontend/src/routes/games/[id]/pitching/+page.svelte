@@ -42,8 +42,6 @@
 				(p: any) =>
 					!p.is_coach && !p.is_substitute && (!absentIds.has(p.id) || activePitcherIds.has(p.id))
 			);
-
-			if (appearances.length === 0) addRow(false);
 		} catch (e) {
 			console.error(e);
 		} finally {
@@ -191,6 +189,7 @@
 							<td>
 								<select
 									bind:value={app.player_id}
+									onchange={() => (isDirty = true)}
 									class="select select-bordered select-sm w-full font-medium"
 								>
 									{#each players as p}
