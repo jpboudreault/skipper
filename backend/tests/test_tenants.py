@@ -1,9 +1,57 @@
+import builtins
+import json
+from unittest.mock import mock_open
+
 import pytest
 from httpx import AsyncClient
 from sqlmodel import Session, select
+from app import main as app_main
 from app.main import app
 from app.auth import get_current_user
 from app.models import User, Team, UserTeamLink
+
+
+def test_seed_tenants_preserves_existing_json_configs_when_omitted(monkeypatch, session: Session):
+    team = session.get(Team, 1)
+    team.name = "Spordle Team"
+    team.season = "2026"
+    team.integration_version = "lfbq_spordle"
+    existing_rules = {
+        "max_pitches_per_day": 85,
+        "rest_requirements": [{"min_pitches": 1, "max_pitches": 20, "days_rest": 0}],
+    }
+    existing_config = {
+        "schedule_id": 193095,
+        "our_spordle_team_id": 167495,
+    }
+    team.pitch_count_rules_json = json.dumps(existing_rules)
+    team.integration_config_json = json.dumps(existing_config)
+    session.add(team)
+    session.commit()
+
+    tenants = [
+        {
+            "name": "Spordle Team",
+            "season": "2026",
+            "innings_per_game": 7,
+            "admin_emails": [],
+        }
+    ]
+    original_exists = app_main.os.path.exists
+    monkeypatch.setattr(app_main, "engine", session.get_bind())
+    monkeypatch.setattr(
+        app_main.os.path,
+        "exists",
+        lambda path: True if path.endswith("tenants.json") else original_exists(path),
+    )
+    monkeypatch.setattr(builtins, "open", mock_open(read_data=json.dumps(tenants)))
+
+    app_main.seed_tenants_and_admins()
+
+    session.refresh(team)
+    assert json.loads(team.pitch_count_rules_json) == existing_rules
+    assert json.loads(team.integration_config_json) == existing_config
+    assert team.innings_per_game == 7
 
 @pytest.mark.asyncio
 async def test_tenant_isolation(client: AsyncClient, session: Session):

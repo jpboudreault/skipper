@@ -41,9 +41,19 @@ def seed_tenants_and_admins():
                 select(Team).where(Team.name == tenant["name"], Team.season == tenant["season"])
             ).first()
             
-            pitch_rules_str = json.dumps(tenant.get("pitch_count_rules", {}))
-            integration_config = dict(tenant.get("integration_config") or {})
+            pitch_rules_str = (
+                json.dumps(tenant.get("pitch_count_rules") or {})
+                if "pitch_count_rules" in tenant
+                else None
+            )
+            integration_config = (
+                dict(tenant.get("integration_config") or {})
+                if "integration_config" in tenant
+                else None
+            )
             if tenant.get("standings_points"):
+                if integration_config is None:
+                    integration_config = {}
                 integration_config["standings_points"] = tenant["standings_points"]
             integration_config_str = (
                 json.dumps(integration_config) if integration_config else None
@@ -59,7 +69,7 @@ def seed_tenants_and_admins():
                     max_pitcher_innings_per_7_days=tenant.get("max_pitcher_innings_per_7_days", 4),
                     late_inning_weight=tenant.get("late_inning_weight", 1.5),
                     language=tenant.get("language", "fr"),
-                    pitch_count_rules_json=pitch_rules_str,
+                    pitch_count_rules_json=pitch_rules_str or "{}",
                     division=tenant.get("division"),
                     classe=tenant.get("classe"),
                     default_league=tenant.get("default_league"),
@@ -78,7 +88,8 @@ def seed_tenants_and_admins():
                 team.max_pitcher_innings_per_7_days = tenant.get("max_pitcher_innings_per_7_days", team.max_pitcher_innings_per_7_days)
                 team.late_inning_weight = tenant.get("late_inning_weight", team.late_inning_weight)
                 team.language = tenant.get("language", team.language)
-                team.pitch_count_rules_json = pitch_rules_str
+                if pitch_rules_str is not None:
+                    team.pitch_count_rules_json = pitch_rules_str
                 team.division = tenant.get("division", team.division)
                 team.classe = tenant.get("classe", team.classe)
                 team.default_league = tenant.get("default_league", team.default_league)
