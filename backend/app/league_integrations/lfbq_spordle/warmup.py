@@ -13,7 +13,10 @@ from app.league_integrations.lfbq_spordle.config import (
     parse_schedules,
 )
 from app.game_status import is_disrupted_schedule_status
-from app.league_integrations.lfbq_spordle.mapping import resolve_spordle_game
+from app.league_integrations.lfbq_spordle.mapping import (
+    normalize_spordle_status,
+    resolve_spordle_game,
+)
 from app.league_integrations.registry import get_opponent_intel
 from app.models import Game, Team
 
@@ -28,6 +31,7 @@ def _link_game_to_spordle(game: Game, schedule_games: list, our_team_id: int) ->
         return False
     game.external_source = "spordle"
     game.external_game_id = str(spordle_game["id"])
+    game.schedule_status = normalize_spordle_status(spordle_game.get("status"))
     return True
 
 
