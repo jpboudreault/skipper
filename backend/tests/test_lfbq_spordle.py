@@ -900,6 +900,64 @@ async def test_dashboard_warmup_links_and_prefetches(client: AsyncClient, sessio
     assert linked.json()["external_game_id"] == "900001"
 
 
+@pytest.mark.asyncio
+async def test_dashboard_warmup_persists_disrupted_status(client: AsyncClient, session):
+    team = session.get(Team, 1)
+    team.integration_version = "lfbq_spordle"
+    team.integration_config_json = json.dumps(
+        {"schedule_id": 193095, "our_spordle_team_id": 167495}
+    )
+    session.add(team)
+    session.commit()
+
+    game_res = await client.post(
+        "/games/",
+        json={"date": "2026-06-01", "opponent": "Rival Stars", "mode": "compete"},
+    )
+    game_id = game_res.json()["id"]
+    postponed_game = {
+        "id": 900001,
+        "date": "2026-06-01",
+        "scheduleId": 193095,
+        "homeTeamId": 167495,
+        "awayTeamId": 162670,
+        "homeTeam": {"id": 167495, "name": "BLUE EXPOS"},
+        "awayTeam": {"id": 162670, "name": "RIVAL STARS"},
+        "status": "Postponed",
+        "teamStats": [],
+    }
+
+    with patch(
+        "app.league_integrations.lfbq_spordle.warmup.date"
+    ) as mock_warmup_date, patch(
+        "app.league_integrations.lfbq_spordle.warmup._client.get_schedule_games",
+        return_value=[postponed_game],
+    ), patch(
+        "app.league_integrations.lfbq_spordle.intel._client.get_schedule_games",
+        return_value=[postponed_game],
+    ):
+        mock_warmup_date.today.return_value = date(2026, 5, 15)
+        res = await client.post(f"/teams/{team.id}/stats/dashboard/warmup")
+
+    assert res.status_code == 200
+    linked = await client.get(f"/games/{game_id}")
+    assert linked.json()["external_game_id"] == "900001"
+    assert linked.json()["schedule_status"] == "postponed"
+
+    with patch("app.game_intel.date") as mock_intel_date:
+        mock_intel_date.today.return_value = date(2026, 5, 15)
+        intel_res = await client.get("/games/upcoming-intel")
+    assert game_id not in {row["id"] for row in intel_res.json()}
+
+    with patch("app.stats_routes.date") as mock_stats_date, patch(
+        "app.game_intel.date"
+    ) as mock_intel_date:
+        mock_stats_date.today.return_value = date(2026, 5, 15)
+        mock_intel_date.today.return_value = date(2026, 5, 15)
+        dashboard_res = await client.get(f"/teams/{team.id}/stats/dashboard")
+    assert game_id not in {row["id"] for row in dashboard_res.json()["upcoming_games"]}
+
+
 PLAYOFF_GAME = {
     "id": 910001,
     "date": "2026-07-01",
