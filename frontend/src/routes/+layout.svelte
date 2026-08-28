@@ -27,11 +27,14 @@
 					? translate('nav_error_loading_team')
 					: translate('nav_loading')
 	);
+	let isAuthRoute = $derived(
+		$page.url.pathname === '/login' || $page.url.pathname.startsWith('/auth/')
+	);
 
 	onMount(async () => {
 		initLocale(data.lockedLocale);
 
-		if ($page.url.pathname === '/login') return;
+		if (isAuthRoute) return;
 
 		try {
 			const result = await loadTeams();
@@ -71,7 +74,7 @@
 	]);
 </script>
 
-{#if $page.url.pathname !== '/login'}
+{#if !isAuthRoute}
 	<div class="navbar bg-base-100 border-base-300 border-b px-4 shadow-sm sm:px-8 print:hidden">
 		<div class="flex-1">
 			<span
