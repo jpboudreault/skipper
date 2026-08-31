@@ -7,6 +7,7 @@ from unittest.mock import patch
 
 import pytest
 from httpx import AsyncClient
+from sqlmodel import select
 
 from app.league_integrations.lfbq_spordle.config import parse_schedules
 from app.league_integrations.lfbq_spordle.intel import (
@@ -24,7 +25,7 @@ from app.league_integrations.lfbq_spordle.mapping import (
     spordle_game_to_fields,
     is_disrupted_schedule_status,
 )
-from app.models import Game, Team
+from app.models import Availability, Game, Player, Team
 
 FIXTURES = Path(__file__).parent / "fixtures" / "spordle"
 
@@ -919,6 +920,137 @@ def _schedule_games_side_effect(schedule_id: int, **_kwargs):
     if schedule_id == 195112:
         return [PLAYOFF_GAME]
     return []
+
+
+def _add_sync_players(session):
+    regular = Player(
+        team_id=1,
+        first_name="Regular",
+        last_name="Player",
+        jersey=11,
+        active=True,
+    )
+    substitute = Player(
+        team_id=1,
+        first_name="Sub",
+        last_name="Player",
+        jersey=12,
+        active=True,
+        is_substitute=True,
+    )
+    session.add(regular)
+    session.add(substitute)
+    session.commit()
+    session.refresh(regular)
+    session.refresh(substitute)
+    return regular, substitute
+
+
+def _availability_statuses(session, game_id: int) -> dict[int, str]:
+    rows = session.exec(
+        select(Availability).where(Availability.game_id == game_id)
+    ).all()
+    return {row.player_id: row.status for row in rows}
+
+
+def test_sync_failure_keeps_created_game_availability_atomic(session):
+    from app.league_integrations.lfbq_spordle.sync import sync_team_schedule
+
+    regular, substitute = _add_sync_players(session)
+    team = session.get(Team, 1)
+    team.integration_version = "lfbq_spordle"
+    team.integration_config_json = json.dumps(
+        {
+            "our_spordle_team_id": 167495,
+            "schedules": [
+                {"schedule_id": 193095, "game_type": "season"},
+                {"schedule_id": 195112, "game_type": "postseason"},
+            ],
+        }
+    )
+    session.add(team)
+    session.commit()
+
+    def fail_second_schedule(schedule_id: int, **_kwargs):
+        if schedule_id == 193095:
+            return [
+                {
+                    "id": 920001,
+                    "date": "2026-07-05",
+                    "number": "S1",
+                    "homeTeamId": 167495,
+                    "awayTeamId": 162670,
+                    "homeTeam": {"id": 167495, "name": "BLUE EXPOS"},
+                    "awayTeam": {"id": 162670, "name": "RIVAL STARS"},
+                    "status": "Active",
+                    "teamStats": [],
+                }
+            ]
+        raise RuntimeError("schedule fetch failed")
+
+    with patch(
+        "app.league_integrations.lfbq_spordle.sync._client.get_schedule_games",
+        side_effect=fail_second_schedule,
+    ), pytest.raises(RuntimeError):
+        sync_team_schedule(session, team)
+
+    session.rollback()
+    created = session.exec(
+        select(Game).where(Game.external_game_id == "920001")
+    ).one()
+    assert _availability_statuses(session, created.id) == {
+        regular.id: "available",
+        substitute.id: "absent",
+    }
+
+
+def test_sync_backfills_missing_availability_for_matched_game(session):
+    from app.league_integrations.lfbq_spordle.sync import sync_team_schedule
+
+    regular, substitute = _add_sync_players(session)
+    team = session.get(Team, 1)
+    team.integration_version = "lfbq_spordle"
+    team.integration_config_json = json.dumps(
+        {"schedule_id": 193095, "our_spordle_team_id": 167495}
+    )
+    session.add(team)
+    existing = Game(
+        team_id=1,
+        date=date(2026, 7, 5),
+        opponent="RIVAL STARS",
+        game_number="S1",
+        game_type="season",
+        external_source="spordle",
+        external_game_id="920001",
+    )
+    session.add(existing)
+    session.commit()
+    session.refresh(existing)
+    assert _availability_statuses(session, existing.id) == {}
+
+    with patch(
+        "app.league_integrations.lfbq_spordle.sync._client.get_schedule_games",
+        return_value=[
+            {
+                "id": 920001,
+                "date": "2026-07-05",
+                "number": "S1",
+                "homeTeamId": 167495,
+                "awayTeamId": 162670,
+                "homeTeam": {"id": 167495, "name": "BLUE EXPOS"},
+                "awayTeam": {"id": 162670, "name": "RIVAL STARS"},
+                "status": "Active",
+                "teamStats": [],
+            }
+        ],
+    ):
+        result = sync_team_schedule(session, team)
+
+    assert result["updated"] == 1
+    assert _availability_statuses(session, existing.id) == {
+        regular.id: "available",
+        substitute.id: "absent",
+    }
 
 
 @pytest.mark.asyncio
