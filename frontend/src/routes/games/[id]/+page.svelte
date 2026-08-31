@@ -9,8 +9,21 @@
 
 	let game: any = $state(null);
 	let editing = $state(false);
+	let editBaseline: any = null;
 
 	let OpponentIntel = $derived(getOpponentIntelComponent($activeTeam?.integration_version));
+	const EDITABLE_GAME_FIELDS = [
+		'game_number',
+		'opponent',
+		'venue',
+		'home_away',
+		'innings_played',
+		'result_runs_for',
+		'result_runs_against',
+		'mode',
+		'league',
+		'external_game_id'
+	];
 
 	async function fetchGame() {
 		const res = await apiFetch(`/games/${$page.params.id}`);
@@ -21,9 +34,43 @@
 		await fetchGame();
 	});
 
+	function startEditing() {
+		editBaseline = game ? { ...game } : null;
+		editing = true;
+	}
+
+	function changedEditableFields() {
+		const changes: Record<string, any> = {};
+		if (!game || !editBaseline) return changes;
+		for (const field of EDITABLE_GAME_FIELDS) {
+			if (game[field] !== editBaseline[field]) {
+				changes[field] = game[field];
+			}
+		}
+		if (game.date !== editBaseline.date) {
+			changes.date = game.date;
+		}
+		return changes;
+	}
+
+	async function latestGameDate(gameId: number, fallback: string) {
+		try {
+			const res = await apiFetch(`/games/${gameId}`);
+			if (!res.ok) return fallback;
+			const latest = await res.json();
+			return latest.date ?? fallback;
+		} catch (e) {
+			console.error(e);
+			return fallback;
+		}
+	}
+
 	async function saveGame() {
 		if (!game) return;
-		const { id: gameId, ...gameData } = game;
+		const gameId = game.id;
+		const changes = changedEditableFields();
+		const date = 'date' in changes ? changes.date : await latestGameDate(gameId, game.date);
+		const gameData = { date, ...changes };
 		const res = await apiFetch(`/games/${gameId}`, {
 			method: 'PUT',
 			headers: {
@@ -33,6 +80,7 @@
 		});
 		if (res.ok) {
 			game = await res.json();
+			editBaseline = null;
 			editing = false;
 		}
 	}
@@ -258,6 +306,7 @@
 				<button
 					onclick={() => {
 						editing = false;
+						editBaseline = null;
 						fetchGame();
 					}}
 					class="btn btn-neutral btn-sm">{$t('common_cancel')}</button
@@ -266,7 +315,7 @@
 				<button onclick={deleteGame} class="btn btn-ghost btn-error btn-sm"
 					>{$t('common_delete')}</button
 				>
-				<button onclick={() => (editing = true)} class="btn btn-primary btn-sm px-6"
+				<button onclick={startEditing} class="btn btn-primary btn-sm px-6"
 					>{$t('common_edit')}</button
 				>
 			{/if}

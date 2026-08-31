@@ -36,6 +36,15 @@ def _seed_availability(session: Session, game_id: int, team_id: int) -> None:
         )
 
 
+def _ensure_availability_seeded(session: Session, game_id: int, team_id: int) -> None:
+    existing = session.exec(
+        select(Availability).where(Availability.game_id == game_id).limit(1)
+    ).first()
+    if existing:
+        return
+    _seed_availability(session, game_id, team_id)
+
+
 def _apply_spordle_fields(game: Game, fields: dict) -> None:
     for key, value in fields.items():
         if value is None:
@@ -88,6 +97,8 @@ def sync_team_schedule(session: Session, team: Team) -> dict:
             if match:
                 had_external = bool(match.external_game_id)
                 _apply_spordle_fields(match, fields)
+                if match.id is not None:
+                    _ensure_availability_seeded(session, match.id, team.id)
                 session.add(match)
                 updated += 1
                 schedule_updated += 1
@@ -97,9 +108,10 @@ def sync_team_schedule(session: Session, team: Team) -> dict:
 
             game = Game(team_id=team.id, game_type=schedule["game_type"], **fields)
             session.add(game)
+            session.flush()
+            _ensure_availability_seeded(session, game.id, team.id)
             session.commit()
             session.refresh(game)
-            _seed_availability(session, game.id, team.id)
             existing_games.append(game)
             created += 1
             schedule_created += 1
