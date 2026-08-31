@@ -39,6 +39,9 @@
 	async function setStatus(playerId: number, newStatus: string) {
 		console.log('[availability] sending status:', newStatus);
 
+		const previousAvailability = availability.map((a) => ({ ...a }));
+		let showFailureAlert = true;
+
 		// Optimistic update
 		const existing = availability.find((a) => a.player_id === playerId);
 		if (existing) {
@@ -65,11 +68,17 @@
 				if (res.status === 401) {
 					alert(translate('common_session_expired'));
 					window.location.href = '/login';
+					showFailureAlert = false;
 				}
-				throw new Error(`HTTP ${res.status}`);
+				const err = await res.json().catch(() => ({ detail: `HTTP ${res.status}` }));
+				throw new Error(err.detail || `HTTP ${res.status}`);
 			}
 		} catch (e) {
+			availability = previousAvailability;
 			console.error('[availability] save failed:', e);
+			if (showFailureAlert) {
+				alert(translate('common_failed_to_save'));
+			}
 		}
 	}
 
